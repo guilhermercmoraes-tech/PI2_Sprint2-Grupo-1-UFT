@@ -1,0 +1,9 @@
+# Ferramentas de teste e qualidade (quality gates)
+-r requirements.txt
+pytest-cov>=7.0
+pytest-bdd>=8.1
+radon>=6.0
+xenon>=0.9
+import-linter>=2.1
+cosmic-ray>=8.7
+pyright>=1.1

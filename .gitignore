@@ -1,0 +1,23 @@
+# Segredos e configuração local
+.env
+*.local.txt
+
+# Dados: só a amostra pública de 10 linhas é versionada
+data/*
+!data/amostra/
+*.sqlite
+*.db
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Resultados gerados
+saida/
+
+# Artefatos de cobertura
+.coverage
+coverage.xml
