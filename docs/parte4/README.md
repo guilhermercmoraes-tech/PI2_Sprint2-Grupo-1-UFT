@@ -8,12 +8,12 @@
 
 | Item | Situação | Evidência |
 |---|---|---|
-| `SPRINT2.md` com até uma página | ✅ 549 palavras | [SPRINT2.md](../../SPRINT2.md) |
+| `SPRINT2.md` com até uma página | ✅ 550 palavras | [SPRINT2.md](../../SPRINT2.md) |
 | O que foi feito | ✅ | SPRINT2.md, seção "O que foi feito" |
 | Decisões de modelagem | ✅ 7 decisões | SPRINT2.md, seção "Decisões de modelagem" |
 | **Divisão de trabalho entre os 5 integrantes** | ⚠️ **Frentes definidas, nomes em branco** | SPRINT2.md, tabela "Divisão de trabalho". A equipe precisa preencher |
 | Impedimentos para a Sprint 3 | ✅ 5 impedimentos | SPRINT2.md, seção "Impedimentos" |
-| **Branch da sprint** (rubrica) | ⚠️ **Decisão da equipe: só a `main`** | Repositório novo, sem fork nem branch, com commits por frente direto na `main`: é o desenvolvimento baseado no tronco do ESM (cap. 10, §10.3: "todo desenvolvimento ocorre no branch principal"). A rubrica cita "branch da sprint", por isso a escolha está justificada aqui e no `SPRINT2.md`. Falta publicar no GitHub (guia em PDF nesta Parte) |
+| **Branch da sprint** (rubrica) | ⚠️ **Decisão da equipe: só a `main`** | Repositório novo, sem fork nem branch, com commits por frente direto na `main`: é o desenvolvimento baseado no tronco do ESM (cap. 10, §10.3: "todo desenvolvimento ocorre no branch principal"). A rubrica cita "branch da sprint", por isso a escolha está justificada aqui e no `SPRINT2.md`. Publicado em 01/10/2026: [github.com/guilhermercmoraes-tech/PI2_Sprint2-Grupo-1-UFT](https://github.com/guilhermercmoraes-tech/PI2_Sprint2-Grupo-1-UFT) |
 | **Diário de bordo em dia** (rubrica) | ⚠️ Atividades registradas, **integrantes em branco** | [DIARIO_DE_BORDO.md](../DIARIO_DE_BORDO.md) |
 
 ## 1. Cronograma previsto × realizado
@@ -35,7 +35,7 @@ gantt
     Código, banco, testes e validação  :done, r1, 2026-09-29, 2026-09-30
     Quality gates e documentação       :done, r2, 2026-09-30, 2026-10-01
     Revisão e correções               :done, r3, 2026-10-01, 2026-10-02
-    Publicação no GitHub              :crit, r4, 2026-10-02, 2026-10-03
+    Publicação no GitHub e 1º CI      :done, r4, 2026-10-01, 2026-10-02
 ```
 
 O **protótipo em Python da Parte 1** foi construído em 29/09, depois do prazo de 23/09. O documento da Parte 1 foi entregue no prazo, mas **sem código**.
@@ -53,11 +53,11 @@ flowchart LR
 
     classDef feito fill:#d4edda,stroke:#2e7d32,color:#1b3d1f
     classDef pend fill:#fff3cd,stroke:#b8860b,color:#4d3800
-    class B feito
-    class A,C,D,E,F,G pend
+    class B,C,D,E feito
+    class A,F,G pend
 ```
 
-Os commits já existem no repositório local (verde). Os passos seguintes dependem da equipe. O guia em PDF desta Parte traz os comandos para a `main` única, inclusive o login da conta certa no primeiro push.
+Verde: feito em 01/10/2026. O repositório foi publicado e a primeira execução dos quality gates no GitHub Actions foi aprovada ([execução 36899758668](https://github.com/guilhermercmoraes-tech/PI2_Sprint2-Grupo-1-UFT/actions/runs/36899758668)). Faltam os nomes da equipe e o envio do link. O guia em PDF desta Parte mostra como cada integrante passa a contribuir.
 
 ## 3. Divisão de trabalho proposta
 

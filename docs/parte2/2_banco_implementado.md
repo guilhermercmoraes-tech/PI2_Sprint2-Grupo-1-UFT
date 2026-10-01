@@ -36,7 +36,7 @@ dados_referencia.sql: 3 comandos
 seed_sintetico.sql: 30 comandos
 ```
 
-> **Situação do versionamento:** o esquema está no Git, na `main`, com histórico de commits por frente de trabalho; o `.gitignore` exclui senhas e dados gerados. Falta publicar o repositório no GitHub, passo da Parte 4 (`Guia_GitHub_Sprint2.pdf`).
+> **Situação do versionamento:** o esquema está no Git, na `main`, com histórico de commits por frente de trabalho; o `.gitignore` exclui senhas e dados gerados. Publicado no GitHub em 01/10/2026: [github.com/guilhermercmoraes-tech/PI2_Sprint2-Grupo-1-UFT](https://github.com/guilhermercmoraes-tech/PI2_Sprint2-Grupo-1-UFT).
 
 ## 3. Restrições que protegem o modelo
 

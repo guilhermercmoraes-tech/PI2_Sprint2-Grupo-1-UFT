@@ -1396,7 +1396,7 @@ flowchart LR
 ## 21. Estrutura do repositório
 
 ```text
-pi2-inteligencia-tributaria/
+PI2_Sprint2-Grupo-1-UFT/    # github.com/guilhermercmoraes-tech/PI2_Sprint2-Grupo-1-UFT (pasta local: pi2-inteligencia-tributaria)
 ├── README.md, SPRINT2.md
 ├── pyproject.toml          # cobertura, contratos de dependência (import-linter), Pyright
 ├── pytest.ini              # marcadores por requisito (rf17, rf18, rnf06…)
@@ -1669,6 +1669,8 @@ Execução de 01/10/2026 12:33 (`python scripts/quality_gate.py --mutacao`), rel
 | G8 Dependências | 4/4 contratos | ✅ |
 | G9 Tipos (Pyright) | 0 erro(s) | ✅ |
 | G10 Mutação | 93,0% (816/877 mortos, nesta rodada) | ✅ |
+
+**No GitHub Actions** (Ubuntu, Python 3.12, MySQL 8.4 em contêiner), a primeira execução, no push de 01/10/2026, também aprovou G1–G9 ([execução 36899758668](https://github.com/guilhermercmoraes-tech/PI2_Sprint2-Grupo-1-UFT/actions/runs/36899758668)). A mutação (G10) roda por agenda e sob demanda.
 
 **Resultado: aprovado.** Correções no código que vieram diretamente dos gates: a refatoração de `carregar()` (complexidade 18 → 6), a separação de `relatorio_validacao.gerar()` para permitir o teste sem sobrescrever o relatório real e, em 01/10, a divisão de `interpretar()` (complexidade 13 → 4).
 

@@ -363,11 +363,11 @@ flowchart LR
 
     classDef feito fill:#d4edda,stroke:#2e7d32,color:#1b3d1f
     classDef parcial fill:#fff3cd,stroke:#b8860b,color:#4d3800
-    class DEV,LOCAL feito
-    class PUSH,CI,AGENDA,CI2 parcial
+    class DEV,LOCAL,PUSH,CI feito
+    class AGENDA,CI2 parcial
 ```
 
-Os gates rodam localmente e foram aprovados (resultado em `docs/qualidade.md`). O workflow do GitHub Actions está pronto, mas só roda depois que o repositório for publicado no GitHub (amarelo no diagrama). A mutação é lenta, por isso roda por agenda, e não a cada push.
+Os gates rodam localmente e foram aprovados (resultado em `docs/qualidade.md`). O repositório foi publicado em 01/10/2026, e a primeira execução no GitHub Actions aprovou G1–G9 ([execução 36899758668](https://github.com/guilhermercmoraes-tech/PI2_Sprint2-Grupo-1-UFT/actions/runs/36899758668)). A mutação é lenta, por isso roda por agenda, e não a cada push; a primeira execução agendada ainda não aconteceu (amarelo no diagrama).
 
 UML: §23.
 

@@ -96,8 +96,7 @@ O FMS, cap. 7, distingue dívida **planejada** (deliberada, assumida para avanç
 | Usuário `pi2_app` pode alterar e apagar a auditoria | Planejada | Protocolos A5 | Criar usuário só de inserção |
 | Módulo operacional só com dados sintéticos | **Não planejada** (os dados públicos não existem) | `SPRINT2.md`; PA-12 | Pedido institucional à Sefin |
 | Carga completa (176.993 linhas) não executada | Planejada (piloto) | Critério 3 | Sprint 3 |
-| Workflow de integração contínua nunca executado no GitHub | Planejada | Guia do GitHub | Primeiro push |
-| Repositório ainda não publicado no GitHub | Planejada | Parte 4 | Antes da entrega |
+| Mutação (G10) ainda não executada no GitHub Actions; G1–G9 já foram aprovados lá | Planejada | `.github/workflows/qualidade.yml` | Primeira execução agendada (segunda-feira) ou manual |
 | Mutação não cobre a carga (`carregar_receita`), porque exige o banco | Planejada | `REQUISITOS_UML.md` §23.4 | Sprint 3 |
 | Classificação da conta repetida por órgão | Planejada (redundância controlada) | Critério 1, §5.4; consulta V17 | Tabela `plano_conta` se o plano de contas passar a ser editado |
 | Pseudonimização especificada, sem código | Planejada (o piloto não tem dados pessoais) | `E3_integracao_segura.md` | Quando chegarem dados pessoais |

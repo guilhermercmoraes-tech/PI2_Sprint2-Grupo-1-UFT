@@ -11,7 +11,7 @@ Evidências geradas novamente em **01/10/2026 12:12**, no MySQL 8.4.11, depois d
 | # | Critério do enunciado | Situação | Documento | Evidência principal |
 |---|---|---|---|---|
 | 1 | Diagrama ER normalizado (3FN) | ✅ Cumprido | [1_diagrama_er_3fn.md](1_diagrama_er_3fn.md) | Diagramas ER dos dois módulos, dependências funcionais, diagrama de classes do domínio |
-| 2 | Banco implementado com **esquema versionado no repositório** | ✅ Cumprido | [2_banco_implementado.md](2_banco_implementado.md) | MySQL 8.4.11, 43 tabelas e 3 views criadas por `schema.sql`, versionado no Git (`main`); a publicação no GitHub é passo da Parte 4 |
+| 2 | Banco implementado com **esquema versionado no repositório** | ✅ Cumprido | [2_banco_implementado.md](2_banco_implementado.md) | MySQL 8.4.11, 43 tabelas e 3 views criadas por `schema.sql`, versionado no Git e publicado no [GitHub](https://github.com/guilhermercmoraes-tech/PI2_Sprint2-Grupo-1-UFT) (`main`) |
 | 3 | Populado com **dados reais** coletados em piloto | ✅ Cumprido no piloto | [3_populado_dados_reais.md](3_populado_dados_reais.md) | Amostra real de 10 linhas carregada com linhagem e SHA-256; contrato do arquivo validado antes da publicação; carga idempotente comprovada |
 | 4 | Consultas SQL de validação **executadas e documentadas** | ✅ Cumprido | [4_consultas_validacao.md](4_consultas_validacao.md) | 18 consultas executadas; resultados gerados automaticamente |
 | — | Evidências complementares | — | [5_manutencao_e_qualidade.md](5_manutencao_e_qualidade.md) | Tipos de manutenção, depuração, dívida técnica, testes e uso de IA |
