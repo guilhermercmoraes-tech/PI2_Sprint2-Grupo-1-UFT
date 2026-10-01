@@ -5,10 +5,14 @@ HeapBinaria: implementação em vetor. Para o índice i (base 0), filhos em
 - topo: O(1) · inserir/extrair: O(log n) · construir a partir de n itens: O(n)
 
 FilaPrioridadeVersionada: ordena ações elegíveis por uma chave lexicográfica
-aprovada (ex.: classe de prioridade, prazo, score sintético), com número de
-sequência para desempate determinístico. Atualizar a prioridade de uma ação
-incrementa sua versão e insere uma nova entrada; entradas obsoletas são
-descartadas na extração (remoção preguiçosa) — Relatório de Auditoria, p. 12.
+aprovada (ex.: classe de prioridade, prazo, score sintético). Cada inserção
+recebe um número de sequência único e crescente, que desempata pela ordem de
+chegada e é a versão da entrada: só vale a entrada cuja sequência é a registrada
+para a ação. Atualizar a prioridade insere uma nova entrada e invalida a
+anterior; entradas obsoletas são descartadas quando chegam ao topo (remoção
+preguiçosa). Como a sequência nunca se repete, uma entrada antiga não volta a
+valer quando a ação sai da fila e é reinserida — documentação do heapq
+(Priority Queue Implementation Notes); Relatório de Auditoria, p. 12.
 
 A heap ordena prioridades; ela não estima probabilidades nem substitui o banco.
 """
@@ -90,47 +94,53 @@ class FilaPrioridadeVersionada:
     """Fila de ações por prioridade com atualização e remoção em O(log n) amortizado."""
 
     def __init__(self) -> None:
+        # entradas da heap: (chave, sequência, id); a sequência é única, então a
+        # comparação nunca chega ao id, que não precisa ser comparável
         self._heap: HeapBinaria[tuple] = HeapBinaria()
-        self._versao: dict[Hashable, int] = {}
+        self._vigente: dict[Hashable, int] = {}   # id → sequência da entrada válida
         self._dados: dict[Hashable, Any] = {}
         self._seq = 0
 
     def inserir(self, id_item: Hashable, chave: tuple, dados: Any = None) -> None:
-        """Insere ou atualiza a prioridade de um item (nova versão invalida a anterior)."""
+        """Insere ou atualiza a prioridade de um item (a nova entrada invalida a anterior)."""
         if any(c is None for c in chave):
             raise ValueError("chave de prioridade incompleta: defina regra para campos ausentes")
-        versao = self._versao.get(id_item, 0) + 1
-        self._versao[id_item] = versao
-        self._dados[id_item] = dados
         self._seq += 1
-        self._heap.inserir((chave, self._seq, id_item, versao))
+        self._vigente[id_item] = self._seq
+        self._dados[id_item] = dados
+        self._heap.inserir((chave, self._seq, id_item))
 
     def remover(self, id_item: Hashable) -> None:
         """Retira o item da fila (ex.: pagamento ou suspensão retiram a elegibilidade)."""
-        if id_item not in self._versao:
+        if id_item not in self._vigente:
             raise KeyError(id_item)
-        del self._versao[id_item]
+        del self._vigente[id_item]
         del self._dados[id_item]
 
     def extrair(self) -> tuple[Hashable, tuple, Any]:
         """Retorna (id, chave, dados) do item de maior prioridade ainda válido."""
         while self._heap:
-            chave, _, id_item, versao = self._heap.extrair()
-            if self._versao.get(id_item) == versao:
-                del self._versao[id_item]
+            chave, seq, id_item = self._heap.extrair()
+            if self._vigente.get(id_item) == seq:
+                del self._vigente[id_item]
                 return id_item, chave, self._dados.pop(id_item)
         raise IndexError("fila vazia")
 
     def espiar(self) -> tuple[Hashable, tuple]:
+        """Item de maior prioridade, sem retirá-lo da fila.
+
+        Descarta, de passagem, as entradas obsoletas do topo da heap; o conteúdo
+        da fila (itens válidos e suas prioridades) não muda.
+        """
         while self._heap:
-            chave, _, id_item, versao = self._heap.topo()
-            if self._versao.get(id_item) == versao:
+            chave, seq, id_item = self._heap.topo()
+            if self._vigente.get(id_item) == seq:
                 return id_item, chave
             self._heap.extrair()  # descarta entrada obsoleta
         raise IndexError("fila vazia")
 
     def __len__(self) -> int:
-        return len(self._versao)
+        return len(self._vigente)
 
     @property
     def entradas_na_heap(self) -> int:
@@ -139,5 +149,5 @@ class FilaPrioridadeVersionada:
 
     def reconstruir(self) -> None:
         """Remove entradas obsoletas acumuladas em O(n)."""
-        vivas = [e for e in self._heap.itens() if self._versao.get(e[2]) == e[3]]
+        vivas = [e for e in self._heap.itens() if self._vigente.get(e[2]) == e[1]]
         self._heap = HeapBinaria(vivas)

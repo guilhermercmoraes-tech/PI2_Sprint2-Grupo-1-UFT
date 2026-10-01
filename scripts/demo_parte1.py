@@ -174,6 +174,16 @@ def demo_heap() -> None:
     print("Ordem de atendimento:", ", ".join(f"{i} ({d['score']})" for i, _, d in
                                             (f.extrair() for _ in range(len(f)))))
 
+    titulo("Ação suspensa e depois reativada: volta com a prioridade nova")
+    f = FilaPrioridadeVersionada()
+    for nome, score in acoes:
+        f.inserir(nome, (-score,), {"score": score})
+    f.remover("Ação E")
+    f.inserir("Ação E", (-30,), {"score": 30})
+    print("Ação E (score 100) suspensa e reativada com score 30. Topo:", f.espiar()[0])
+    print("Ordem de atendimento:", ", ".join(f"{i} ({d['score']})" for i, _, d in
+                                            (f.extrair() for _ in range(len(f)))))
+
     titulo("Critério composto do plano: classe de prioridade, prazo e score")
     f = FilaPrioridadeVersionada()
     f.inserir("Revisar cadastro de lotes", (2, date(2026, 10, 15), -0.40))
