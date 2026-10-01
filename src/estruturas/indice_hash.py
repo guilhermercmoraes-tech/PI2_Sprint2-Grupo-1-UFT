@@ -2,7 +2,7 @@
 
 Uso no projeto (docs/arquitetura_dados.md):
 - índice analítico: (snapshot, órgão, ano, mês, código_original) → linha de receita,
-  para busca exata e detecção de reimportação;
+  para busca exata (a reimportação de um arquivo é detectada no banco, pelo SHA-256);
 - índice operacional: id da inscrição/crédito → registro;
 - IndiceSecundario: sujeito passivo → vários créditos (CPF/CNPJ sozinho não
   identifica uma dívida).

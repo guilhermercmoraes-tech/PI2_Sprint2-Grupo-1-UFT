@@ -1,3 +1,5 @@
+import random
+from collections import deque
 from pathlib import Path
 
 import pytest
@@ -136,3 +138,109 @@ def test_dfs_segue_a_ordem_da_busca_recursiva_do_livro():
 
     assert g.dfs("a") == recursiva("a", []) == ["a", "b", "d", "e", "c", "f"]
     assert g.bfs("a") == ["a", "b", "c", "d", "f", "e"]
+
+
+RESPONDE_POR = "RESPONDE_POR"
+
+
+def test_filtro_de_rotulo_compara_por_igualdade_e_nao_por_identidade():
+    # um rótulo lido do banco ou de um arquivo é outro objeto, com o mesmo texto
+    lido = "RESPONDE_POR".encode().decode()
+    assert lido == RESPONDE_POR and lido is not RESPONDE_POR
+    g = grafo_de(["S", "C", "I"], [("S", "C", RESPONDE_POR), ("S", "I", "PROPRIETARIO")])
+    assert g.sucessores("S", lido) == ["C"]
+
+
+# --- testes de propriedade (Claessen e Hughes, 2000) e diferenciais (McKeeman, 1998) ---
+# Grafos aleatórios, com laços e ciclos, reprodutíveis pela semente. Cada algoritmo é
+# comparado com uma implementação de referência independente.
+
+def grafo_aleatorio(rnd):
+    n = rnd.randint(1, 10)
+    arestas = {(rnd.randrange(n), rnd.randrange(n)) for _ in range(rnd.randint(0, 18))}
+    return n, arestas, grafo_de(range(n), arestas)
+
+
+def ciclo_por_kahn(n, arestas):
+    """Ordenação topológica de Kahn (1962): sobram vértices se, e só se, há ciclo."""
+    entrada = [0] * n
+    for _, destino in arestas:
+        entrada[destino] += 1
+    fila, removidos = deque(v for v in range(n) if entrada[v] == 0), 0
+    while fila:
+        v = fila.popleft()
+        removidos += 1
+        for origem, destino in arestas:
+            entrada[destino] -= origem == v
+            fila.extend([destino] if origem == v and entrada[destino] == 0 else [])
+    return removidos != n
+
+
+def componentes_por_uniao_e_busca(n, arestas):
+    """Conjuntos disjuntos (union-find): componentes fracamente conexos."""
+    pai = list(range(n))
+
+    def raiz(v):
+        while pai[v] != v:
+            v = pai[v]
+        return v
+
+    for origem, destino in arestas:
+        pai[raiz(origem)] = raiz(destino)
+    grupos: dict[int, set[int]] = {}
+    for v in range(n):
+        grupos.setdefault(raiz(v), set()).add(v)
+    return {frozenset(grupo) for grupo in grupos.values()}
+
+
+def alcancaveis_por_fecho(inicio, arestas):
+    """Ponto fixo: acrescenta destinos de arestas que saem do conjunto até nada mudar."""
+    alcancados, tamanho = {inicio}, 0
+    while tamanho != len(alcancados):
+        tamanho = len(alcancados)
+        alcancados |= {destino for origem, destino in arestas if origem in alcancados}
+    return alcancados
+
+
+def dfs_recursiva_do_livro(g, inicio):
+    """Lintzmayer & Mota, Algoritmo 24.12: visita v e, em ordem, cada vizinho ainda não visitado."""
+    visitados = []
+
+    def visitar(v):
+        visitados.append(v)
+        for w in g.sucessores(v):
+            if w not in visitados:
+                visitar(w)
+
+    visitar(inicio)
+    return visitados
+
+
+def bfs_do_livro(g, inicio):
+    """Lintzmayer & Mota, Algoritmo 24.5: fila; marca o vértice ao enfileirá-lo."""
+    visitados, fila = [inicio], deque([inicio])
+    while fila:
+        for w in g.sucessores(fila.popleft()):
+            if w not in visitados:
+                visitados.append(w)
+                fila.append(w)
+    return visitados
+
+
+class TestPropriedades:
+    @pytest.mark.parametrize("semente", range(4))
+    def test_algoritmos_equivalem_as_implementacoes_de_referencia(self, semente):
+        rnd = random.Random(semente)
+        for _ in range(250):
+            n, arestas, g = grafo_aleatorio(rnd)
+            inicio = rnd.randrange(n)
+            assert g.tem_ciclo() == ciclo_por_kahn(n, arestas), arestas
+            componentes, referencia = g.componentes_conexos(), componentes_por_uniao_e_busca(n, arestas)
+            assert len(componentes) == len(referencia) and set(map(frozenset, componentes)) == referencia
+            esperado = alcancaveis_por_fecho(inicio, arestas)
+            for percurso in (g.bfs(inicio), g.dfs(inicio)):
+                assert percurso[0] == inicio and len(percurso) == len(set(percurso))  # sem repetição
+                assert set(percurso) == esperado
+            # mesma ordem de visita dos algoritmos do livro (a DFS do código é iterativa)
+            assert g.dfs(inicio) == dfs_recursiva_do_livro(g, inicio)
+            assert g.bfs(inicio) == bfs_do_livro(g, inicio)
