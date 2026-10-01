@@ -135,8 +135,9 @@ def gravar(resultados: list[dict]) -> None:
                "- **Ignorados (anotações):** mutantes em anotações de tipo, que não são executadas por causa de "
                "`from __future__ import annotations` (mutantes equivalentes, filtrados por "
                "`scripts/filtro_anotacoes.py`).",
-               "- A análise de cada sobrevivente (lacuna de teste ou mutante equivalente) está em "
-               "`docs/REQUISITOS_UML.md`, §23.4.",
+               "- `python scripts/sobreviventes.py` aplica cada sobrevivente e compara o comportamento com o "
+               "do código original numa carga diferencial: resultado diferente é lacuna de teste. A análise de "
+               "cada sobrevivente está em `docs/REQUISITOS_UML.md`, §23.4.",
                ""]
     for r in resultados:
         if r["detalhes_sobreviventes"]:
