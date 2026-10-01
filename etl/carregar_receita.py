@@ -1,40 +1,46 @@
 """Carga do CSV de receita (portal NUCLEOGOV) no MySQL.
 
-Etapas (Relatório de Auditoria, p. 9): registrar snapshot por SHA-256 →
-staging textual → interpretar e validar → classificar pelo mapeamento
-aprovado → publicar em transação única. Reexecutar com o mesmo arquivo
-não duplica dados (idempotência pelo hash).
+Etapas (Relatório de Auditoria, p. 9): validar o contrato do arquivo inteiro
+(etl.parser.validar_arquivo) → registrar o snapshot com a situação decidida
+(PUBLICADO ou REJEITADO), o staging textual e as ocorrências → publicar, só se não
+houver erro de contrato. Tudo em transação única.
+
+Idempotência: o mesmo arquivo (SHA-256) é publicado no máximo uma vez, e um arquivo
+reprovado só é reprocessado por uma nova versão das regras (VERSAO_PARSER); o banco
+garante as duas coisas (fonte_snapshot). Repetir a carga não grava nada e devolve o
+resumo registrado, igual ao da primeira vez.
 
 Uso:
     python -m etl.carregar_receita data/amostra/receita_amostra_10.csv
 """
 from __future__ import annotations
 
-import csv
 import hashlib
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from etl.config import conectar
-from etl.parser import Classificacao, ErroValidacao, LinhaReceita, conciliar, interpretar
+from etl.parser import (COLUNAS_FONTE, Campos, Classificacao, LinhaReceita, Ocorrencia, conciliar, ler_fonte,
+                        validar_arquivo)
 
-VERSAO_PARSER = "0.1.0"
-CAMPOS_STG = ("total", "orgao_nome", "unidade_nome", "codigo", "orgao", "ano", "mes", "descricao",
-              "valor_orcado", "valor_arrecado_mes", "valor_arrecado_periodo", "covid",
-              "unidade_id", "codigo_original")
+# Versão das regras de validação e classificação. Mudá-la permite reprocessar
+# arquivos reprovados pelas regras anteriores.
+VERSAO_PARSER = "0.2.0"
+CAMPOS_STG = COLUNAS_FONTE
 
 
 @dataclass
 class ResumoCarga:
     id_snapshot: int
     ja_existia: bool
+    situacao: str           # PUBLICADO | REJEITADO
     linhas_lidas: int
     componentes: int
     totais: int
     nao_mapeadas: int
-    erros: int
-    divergencias: int
+    erros: int              # erros de contrato de entrada
+    divergencias: int       # divergências de conciliação conta-pai × componentes
 
 
 def sha256_arquivo(caminho: Path) -> str:
@@ -45,28 +51,31 @@ def sha256_arquivo(caminho: Path) -> str:
     return h.hexdigest()
 
 
-def ler_csv(caminho: Path) -> list[tuple[int, dict[str, str]]]:
-    """Lê o CSV; usa a coluna linha_origem (amostra) ou o número da linha no arquivo."""
+def ler_arquivo(caminho: Path) -> tuple[list[str], list[tuple[int, Campos]]]:
+    """Cabeçalho e registros; a linha de origem é a coluna linha_origem (amostra) ou a linha física."""
     with open(caminho, encoding="utf-8-sig", newline="") as f:
-        leitor = csv.DictReader(f, delimiter=";")
-        return [(int(l["linha_origem"]) if l.get("linha_origem") else n, l)
-                for n, l in enumerate(leitor, start=2)]
+        cabecalho, registros = ler_fonte(f)
+        return cabecalho, [(int(campos.get("linha_origem") or n), campos) for n, campos in registros]
+
+
+def ler_csv(caminho: Path) -> list[tuple[int, Campos]]:
+    """Registros do CSV com a linha de origem de cada um."""
+    return ler_arquivo(caminho)[1]
 
 
 def carregar(caminho: Path, conexao=None, descricao: str | None = None) -> ResumoCarga:
-    """Carrega o CSV em transação única; se o SHA-256 já existe, não grava nada."""
+    """Carrega o CSV em transação única; um arquivo já registrado não é gravado de novo."""
     caminho = Path(caminho)
     sha = sha256_arquivo(caminho)
-    registros = ler_csv(caminho)
+    cabecalho, registros = ler_arquivo(caminho)
     propria = conexao is None
     con = conexao or conectar()
     try:
         with con.cursor() as cur:
-            cur.execute("SELECT id_snapshot FROM fonte_snapshot WHERE sha256 = %s", (sha,))
-            existente = cur.fetchone()
-            if existente:
-                return _resumo_existente(cur, existente[0], len(registros))
-            resumo = _executar_carga(cur, caminho, sha, registros, descricao)
+            registrado = _snapshot_registrado(cur, sha)
+            if registrado is not None:
+                return _resumo(cur, registrado, ja_existia=True)
+            resumo = _executar_carga(cur, caminho, sha, cabecalho, registros, descricao)
         con.commit()
         return resumo
     except Exception:
@@ -77,26 +86,36 @@ def carregar(caminho: Path, conexao=None, descricao: str | None = None) -> Resum
             con.close()
 
 
-def _executar_carga(cur, caminho: Path, sha: str, registros, descricao) -> ResumoCarga:
-    id_snap = _registrar_snapshot(cur, caminho, sha, len(registros), descricao)
+def _snapshot_registrado(cur, sha: str) -> int | None:
+    """Snapshot que dispensa nova carga: o já publicado ou o reprovado pelas regras atuais."""
+    cur.execute("SELECT id_snapshot FROM fonte_snapshot WHERE sha256 = %s"
+                " AND (situacao = 'PUBLICADO' OR versao_parser = %s)"
+                " ORDER BY situacao = 'PUBLICADO' DESC LIMIT 1", (sha, VERSAO_PARSER))
+    encontrado = cur.fetchone()
+    return encontrado[0] if encontrado else None
+
+
+def _executar_carga(cur, caminho: Path, sha: str, cabecalho, registros, descricao) -> ResumoCarga:
+    analise = validar_arquivo(cabecalho, registros)
+    publicar = analise.erros_de_contrato == 0
+    id_snap = _registrar_snapshot(cur, caminho, sha, len(registros), descricao,
+                                  "PUBLICADO" if publicar else "REJEITADO")
     _gravar_staging(cur, id_snap, registros)
-    validas, erros = _interpretar_registros(cur, id_snap, registros)
-    if erros:
-        # Erro de contrato interrompe a promoção: nada além do staging é publicado.
-        return ResumoCarga(id_snap, False, len(registros), 0, 0, 0, erros, 0)
-    mapeadas = [l for l in validas if l.classificacao is not None]
+    _gravar_ocorrencias(cur, id_snap, analise.ocorrencias)
+    if not publicar:
+        # erro de contrato interrompe a promoção: o arquivo reprovado fica só com staging e evidências
+        return _resumo(cur, id_snap, ja_existia=False)
+    mapeadas = [linha for linha in analise.validas if linha.classificacao is not None]
     _publicar(cur, id_snap, mapeadas)
-    divergencias = _registrar_conciliacao(cur, id_snap, mapeadas)
-    componentes = sum(1 for l in mapeadas if _classe(l).papel == "COMPONENTE")
-    return ResumoCarga(id_snap, False, len(registros), componentes, len(mapeadas) - componentes,
-                       len(validas) - len(mapeadas), 0, divergencias)
+    _gravar_ocorrencias(cur, id_snap, _conciliacao(mapeadas))
+    return _resumo(cur, id_snap, ja_existia=False)
 
 
-def _registrar_snapshot(cur, caminho: Path, sha: str, total: int, descricao) -> int:
+def _registrar_snapshot(cur, caminho: Path, sha: str, total: int, descricao, situacao: str) -> int:
     cur.execute(
         "INSERT INTO fonte_snapshot (sha256, nome_arquivo, tamanho_bytes, total_linhas,"
-        " versao_parser, descricao) VALUES (%s,%s,%s,%s,%s,%s)",
-        (sha, caminho.name, caminho.stat().st_size, total, VERSAO_PARSER, descricao))
+        " versao_parser, situacao, descricao) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+        (sha, caminho.name, caminho.stat().st_size, total, VERSAO_PARSER, situacao, descricao))
     return cur.lastrowid
 
 
@@ -104,38 +123,25 @@ def _gravar_staging(cur, id_snap: int, registros) -> None:
     cur.executemany(
         f"INSERT INTO stg_receita_atual (id_snapshot, linha_origem, {', '.join(CAMPOS_STG)})"
         f" VALUES (%s, %s, {', '.join(['%s'] * len(CAMPOS_STG))})",
-        [(id_snap, n, *[l.get(c) for c in CAMPOS_STG]) for n, l in registros])
+        [(id_snap, n, *[campos.get(c) for c in CAMPOS_STG]) for n, campos in registros])
 
 
-def _interpretar_registros(cur, id_snap: int, registros) -> tuple[list[LinhaReceita], int]:
-    """Valida cada linha e registra erros, avisos e contas não mapeadas."""
-    validas: list[LinhaReceita] = []
-    erros = 0
-    for n, bruto in registros:
-        try:
-            linha = interpretar(bruto, n)
-        except ErroValidacao as exc:
-            erros += 1
-            _validacao(cur, id_snap, "CONTRATO_ENTRADA", "ERRO", n, str(exc))
-            continue
-        for aviso in linha.avisos:
-            _validacao(cur, id_snap, "QUALIDADE", "AVISO", n, aviso)
-        if linha.classificacao is None:
-            _validacao(cur, id_snap, "CONTA_NAO_MAPEADA", "INFO", n,
-                       f"código {linha.codigo_original} permanece só no staging")
-        validas.append(linha)
-    return validas, erros
+def _gravar_ocorrencias(cur, id_snap: int, ocorrencias: list[Ocorrencia]) -> None:
+    cur.executemany(
+        "INSERT INTO resultado_validacao (id_snapshot, regra, gravidade, linha_origem, evidencia)"
+        " VALUES (%s,%s,%s,%s,%s)",
+        [(id_snap, o.regra, o.gravidade, o.linha_origem, o.evidencia[:500]) for o in ocorrencias])
 
 
-def _registrar_conciliacao(cur, id_snap: int, mapeadas: list[LinhaReceita]) -> int:
+def _conciliacao(mapeadas: list[LinhaReceita]) -> list[Ocorrencia]:
     divergencias = conciliar(mapeadas)
-    for (orgao, ano, mes, pai), total, soma in divergencias:
-        _validacao(cur, id_snap, "CONCILIACAO_PAI_FILHOS", "ERRO", None,
-                   f"órgão {orgao} {ano}-{mes:02d} conta {pai}: total {total} ≠ soma {soma}")
     if not divergencias:
-        _validacao(cur, id_snap, "CONCILIACAO_PAI_FILHOS", "INFO", None,
-                   "todas as contas-pai conferem com a soma dos componentes")
-    return len(divergencias)
+        return [Ocorrencia("CONCILIACAO_PAI_FILHOS", "INFO", None,
+                           "nenhuma divergência entre as contas-pai e a soma dos componentes")]
+    return [Ocorrencia("CONCILIACAO_PAI_FILHOS", "ERRO", None,
+                       f"órgão {orgao} {ano}-{mes:02d} conta {pai}: "
+                       + (f"total {total} ≠ soma {soma}" if total is not None else f"total ausente, soma {soma}"))
+            for (orgao, ano, mes, pai), total, soma in divergencias]
 
 
 def _publicar(cur, id_snap: int, linhas: list[LinhaReceita]) -> None:
@@ -151,7 +157,10 @@ def _publicar_orgaos(cur, linhas: list[LinhaReceita]) -> None:
 
 
 def _publicar_contas(cur, id_snap: int, linhas: list[LinhaReceita]) -> dict[tuple, int]:
-    """Insere as contas (pais antes dos componentes) e devolve (ano, órgão, código) → id_conta."""
+    """Insere as contas (pais antes dos componentes) e devolve (ano, órgão, código) → id_conta.
+
+    validar_arquivo já garantiu que todo componente tem a sua conta-pai no arquivo.
+    """
     ids: dict[tuple, int] = {}
     ordenadas = sorted(linhas, key=lambda l: _classe(l).papel != "TOTAL")
     for l in ordenadas:
@@ -192,16 +201,25 @@ def _classe(linha: LinhaReceita) -> Classificacao:
     return linha.classificacao
 
 
-def _validacao(cur, id_snap, regra, gravidade, linha, evidencia) -> None:
-    cur.execute("INSERT INTO resultado_validacao (id_snapshot, regra, gravidade, linha_origem, evidencia)"
-                " VALUES (%s,%s,%s,%s,%s)", (id_snap, regra, gravidade, linha, evidencia[:500]))
-
-
-def _resumo_existente(cur, id_snap: int, lidas: int) -> ResumoCarga:
-    cur.execute("SELECT papel, COUNT(*) FROM conta_receita WHERE id_snapshot = %s GROUP BY papel", (id_snap,))
-    por_papel = dict(cur.fetchall())
-    return ResumoCarga(id_snap, True, lidas, por_papel.get("COMPONENTE", 0), por_papel.get("TOTAL", 0),
-                       0, 0, 0)
+def _resumo(cur, id_snap: int, ja_existia: bool) -> ResumoCarga:
+    """Resumo lido do que ficou registrado: repetir a carga devolve o mesmo resumo."""
+    cur.execute("SELECT situacao, total_linhas FROM fonte_snapshot WHERE id_snapshot = %s", (id_snap,))
+    situacao, linhas_lidas = cur.fetchone()
+    cur.execute("SELECT (SELECT COUNT(*) FROM receita_componente_mensal f JOIN conta_receita c USING (id_conta)"
+                "         WHERE c.id_snapshot = %s),"
+                "       (SELECT COUNT(*) FROM total_informado_mensal t JOIN conta_receita c USING (id_conta)"
+                "         WHERE c.id_snapshot = %s)", (id_snap, id_snap))
+    componentes, totais = cur.fetchone()
+    cur.execute("SELECT regra, gravidade, COUNT(*) FROM resultado_validacao WHERE id_snapshot = %s"
+                " GROUP BY regra, gravidade", (id_snap,))
+    ocorrencias = {(regra, gravidade): n for regra, gravidade, n in cur.fetchall()}
+    return ResumoCarga(
+        id_snapshot=id_snap, ja_existia=ja_existia, situacao=situacao, linhas_lidas=linhas_lidas,
+        componentes=componentes, totais=totais,
+        nao_mapeadas=ocorrencias.get(("CONTA_NAO_MAPEADA", "INFO"), 0),
+        erros=ocorrencias.get(("CONTRATO_ENTRADA", "ERRO"), 0),
+        divergencias=ocorrencias.get(("CONCILIACAO_PAI_FILHOS", "ERRO"), 0),
+    )
 
 
 if __name__ == "__main__":
@@ -209,8 +227,7 @@ if __name__ == "__main__":
         sys.exit(__doc__)
     r = carregar(Path(sys.argv[1]), descricao="Amostra Sprint 2")
     if r.ja_existia:
-        print(f"Snapshot {r.id_snapshot} já carregado (mesmo SHA-256): nada foi duplicado.")
-    else:
-        print(f"Snapshot {r.id_snapshot}: {r.linhas_lidas} linhas lidas · {r.componentes} componentes · "
-              f"{r.totais} totais · {r.nao_mapeadas} não mapeadas · {r.erros} erros · "
-              f"{r.divergencias} divergências de conciliação")
+        print(f"Snapshot {r.id_snapshot} já registrado (mesmo SHA-256 e regras): nada foi gravado de novo.")
+    print(f"Snapshot {r.id_snapshot} {r.situacao}: {r.linhas_lidas} linhas lidas · {r.componentes} componentes · "
+          f"{r.totais} totais · {r.nao_mapeadas} não mapeadas · {r.erros} erros de contrato · "
+          f"{r.divergencias} divergências de conciliação")

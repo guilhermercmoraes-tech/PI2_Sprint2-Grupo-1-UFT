@@ -1,3 +1,4 @@
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -19,11 +20,28 @@ def carregar_amostra(banco, ctx):
     ctx["resumo"] = carregar(AMOSTRA, conexao=banco)
 
 
+@given(parsers.parse('que um arquivo com o valor "{valor}" na conta "{conta}" já foi carregado'))
 @when(parsers.parse('carrego um arquivo com o valor "{valor}" na conta "{conta}"'))
 def carregar_invalido(banco, ctx, tmp_path, valor, conta):
     arq = tmp_path / "invalido.csv"
     arq.write_text(f"{CABECALHO}\n1;TESOURO;;1.1;2798;2025;2;X;10;{valor};{valor};0;;{conta}\n",
                    encoding="utf-8-sig")
+    ctx["arquivo"], ctx["resumo"] = arq, carregar(arq, conexao=banco)
+    ctx["primeiro_resumo"] = ctx["resumo"]
+
+
+@when("carrego o mesmo arquivo de novo")
+def recarregar(banco, ctx):
+    ctx["resumo"] = carregar(ctx["arquivo"], conexao=banco)
+
+
+@when(parsers.parse('carrego um arquivo sem a coluna "{coluna}"'))
+def carregar_sem_coluna(banco, ctx, tmp_path, coluna):
+    colunas = CABECALHO.split(";")
+    linha = dict(zip(colunas, "1;TESOURO;;1.1;2798;2025;2;X;10;5.00;5.00;0;;11125001".split(";")))
+    arq = tmp_path / "sem_coluna.csv"
+    arq.write_text(";".join(c for c in colunas if c != coluna) + "\n"
+                   + ";".join(v for c, v in linha.items() if c != coluna) + "\n", encoding="utf-8-sig")
     ctx["resumo"] = carregar(arq, conexao=banco)
 
 
@@ -78,6 +96,23 @@ def erro_registrado(banco, ctx, regra):
     linhas = consultar(banco, "SELECT gravidade FROM resultado_validacao WHERE id_snapshot = %s AND regra = %s",
                        (ctx["resumo"].id_snapshot, regra))
     assert linhas == (("ERRO",),)
+
+
+@then(parsers.parse('o arquivo fica registrado como "{situacao}"'))
+def situacao_registrada(banco, ctx, situacao):
+    assert ctx["resumo"].situacao == situacao
+    assert consultar(banco, "SELECT situacao FROM fonte_snapshot WHERE id_snapshot = %s",
+                     (ctx["resumo"].id_snapshot,)) == ((situacao,),)
+
+
+@then("o resumo é igual ao da primeira carga")
+def mesmo_resumo(ctx):
+    assert replace(ctx["resumo"], ja_existia=False) == ctx["primeiro_resumo"]
+
+
+@then("o arquivo continua registrado uma única vez")
+def registrado_uma_vez(banco):
+    assert consultar(banco, "SELECT COUNT(*) FROM fonte_snapshot")[0][0] == 1
 
 
 @then(parsers.parse('o orçamento da conta "{conta}" é "{valor}" gravado uma única vez'))

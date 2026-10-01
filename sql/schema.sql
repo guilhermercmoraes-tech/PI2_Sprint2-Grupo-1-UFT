@@ -69,18 +69,24 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- MÓDULO A — RECEITA OBSERVADA
 -- =====================================================================
 
--- Versão imutável de um arquivo de origem, identificada pelo SHA-256.
--- Reimportar o mesmo arquivo não cria receita nova (UNIQUE sha256).
+-- Processamento imutável de um arquivo de origem (SHA-256) por uma versão das regras.
+-- A situação é decidida antes da gravação: PUBLICADO ou REJEITADO (erro de contrato).
+-- Reimportar o mesmo arquivo não cria receita nova: no máximo um snapshot PUBLICADO por
+-- SHA-256 (uq_snapshot_publicado). Um arquivo reprovado só é reprocessado por uma nova
+-- versão das regras (uq_snapshot_sha_versao).
 CREATE TABLE fonte_snapshot (
-    id_snapshot     INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    sha256          CHAR(64)      NOT NULL,
-    nome_arquivo    VARCHAR(255)  NOT NULL,
-    tamanho_bytes   BIGINT UNSIGNED NOT NULL,
-    total_linhas    INT UNSIGNED  NOT NULL,
-    versao_parser   VARCHAR(20)   NOT NULL,
-    descricao       VARCHAR(255)  NULL,
-    data_carga      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_snapshot_sha UNIQUE (sha256)
+    id_snapshot       INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    sha256            CHAR(64)      NOT NULL,
+    nome_arquivo      VARCHAR(255)  NOT NULL,
+    tamanho_bytes     BIGINT UNSIGNED NOT NULL,
+    total_linhas      INT UNSIGNED  NOT NULL,
+    versao_parser     VARCHAR(20)   NOT NULL,
+    situacao          ENUM('PUBLICADO','REJEITADO') NOT NULL,
+    descricao         VARCHAR(255)  NULL,
+    data_carga        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sha256_publicado  CHAR(64) AS (IF(situacao = 'PUBLICADO', sha256, NULL)) VIRTUAL,
+    CONSTRAINT uq_snapshot_sha_versao UNIQUE (sha256, versao_parser),
+    CONSTRAINT uq_snapshot_publicado  UNIQUE (sha256_publicado)
 ) ENGINE=InnoDB;
 
 -- Área de staging: cópia textual fiel de cada linha do CSV (linhagem).
@@ -286,7 +292,8 @@ CREATE TABLE avaliacao_pvg (
 ) ENGINE=InnoDB;
 
 -- ---------- Sujeito passivo e base de cálculo ----------
--- documento_pseudonimizado = SHA-256(sal secreto + CPF/CNPJ). Pseudonimização, não anonimização.
+-- documento_pseudonimizado = HMAC-SHA-256(chave secreta, CPF/CNPJ só com dígitos), em hexadecimal.
+-- Pseudonimização, não anonimização (LGPD, art. 13, §4º): a chave fica fora do banco e do Git.
 CREATE TABLE sujeito_passivo (
     id_sujeito                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     tipo_pessoa               ENUM('PF','PJ') NOT NULL,
@@ -456,12 +463,16 @@ CREATE TABLE cidadao (
     CONSTRAINT fk_cid_usuario FOREIGN KEY (id_usuario) REFERENCES usuario (id_usuario)
 ) ENGINE=InnoDB;
 
+-- Escopo territorial: o município inteiro (id_regiao NULL) ou uma região, por chave estrangeira.
+-- escopo_regiao troca o NULL por 0 só para o UNIQUE (no MySQL, NULLs não colidem num UNIQUE).
 CREATE TABLE permissao (
-    id_permissao        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    operacao            VARCHAR(60) NOT NULL,
-    recurso             VARCHAR(60) NOT NULL,
-    escopo_territorial  VARCHAR(60) NOT NULL,   -- ex.: MUNICIPIO, REGIAO:<id>
-    CONSTRAINT uq_permissao UNIQUE (operacao, recurso, escopo_territorial)
+    id_permissao   INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    operacao       VARCHAR(60) NOT NULL,
+    recurso        VARCHAR(60) NOT NULL,
+    id_regiao      INT UNSIGNED NULL,
+    escopo_regiao  INT UNSIGNED AS (COALESCE(id_regiao, 0)) VIRTUAL,
+    CONSTRAINT uq_permissao UNIQUE (operacao, recurso, escopo_regiao),
+    CONSTRAINT fk_perm_regiao FOREIGN KEY (id_regiao) REFERENCES regiao (id_regiao)
 ) ENGINE=InnoDB;
 
 CREATE TABLE perfil_concede (

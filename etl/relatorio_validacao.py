@@ -54,8 +54,8 @@ def gerar(conexao, destino: Path) -> int:
         "a partir de `sql/validacao.sql`, no MySQL 8.4 com a amostra de 10 linhas reais "
         "(`data/amostra/receita_amostra_10.csv`) e a semente sintética (`sql/seed_sintetico.sql`).",
         "",
-        "V01–V08 validam os **dados reais** de receita. V09–V16 validam a estrutura do "
-        "módulo operacional com **dados sintéticos** identificados.",
+        "V01–V08, V17 e V18 validam os **dados reais** de receita e o contrato da carga. V09–V16 "
+        "validam a estrutura do módulo operacional com **dados sintéticos** identificados.",
         "",
     ]
     executados = 0

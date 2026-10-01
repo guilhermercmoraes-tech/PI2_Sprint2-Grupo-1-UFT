@@ -95,10 +95,10 @@ class TestRelatorioValidacao:
             ("V02", "Segunda", "2 linhas", "SELECT 2\nFROM t;"),
         ]
 
-    def test_arquivo_de_validacao_tem_16_blocos_numerados(self):
+    def test_arquivo_de_validacao_tem_18_blocos_numerados(self):
         texto = (Path(__file__).resolve().parent.parent / "sql" / "validacao.sql").read_text(encoding="utf-8")
         ids = [b[0] for b in blocos(texto)]
-        assert ids == [f"V{i:02d}" for i in range(1, 17)]
+        assert ids == [f"V{i:02d}" for i in range(1, 19)]
 
     @pytest.mark.parametrize("valor,esperado", [
         (Decimal("2885620.64"), "2.885.620,64"),

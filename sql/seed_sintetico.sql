@@ -90,10 +90,10 @@ INSERT INTO credito_em_negociacao VALUES (3, 1);
 
 -- Identidade e autorização (hash_credencial é ilustrativo, não é senha real)
 INSERT INTO perfil_permissao (id_perfil, nome) VALUES (1, 'ANALISTA_FISCAL'), (2, 'AUDITOR');
-INSERT INTO permissao (id_permissao, operacao, recurso, escopo_territorial) VALUES
-    (1, 'CONSULTAR', 'PLANO',     'MUNICIPIO'),
-    (2, 'EDITAR',    'PLANO',     'REGIAO:1'),
-    (3, 'CONSULTAR', 'AUDITORIA', 'MUNICIPIO');
+INSERT INTO permissao (id_permissao, operacao, recurso, id_regiao) VALUES   -- id_regiao NULL = município
+    (1, 'CONSULTAR', 'PLANO',     NULL),
+    (2, 'EDITAR',    'PLANO',     1),
+    (3, 'CONSULTAR', 'AUDITORIA', NULL);
 INSERT INTO perfil_concede VALUES (1, 1), (1, 2), (2, 3);
 
 INSERT INTO usuario (id_usuario, login, hash_credencial, tipo, origem_dado) VALUES

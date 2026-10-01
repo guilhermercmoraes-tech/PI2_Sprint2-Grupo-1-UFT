@@ -29,6 +29,20 @@ Funcionalidade: Carga da receita observada
     Quando carrego um arquivo com o valor "1.005" na conta "11125001"
     Então nada é publicado além do staging
     E a validação registra um erro de "CONTRATO_ENTRADA"
+    E o arquivo fica registrado como "REJEITADO"
+
+  Cenário: Reimportar um arquivo reprovado repete o diagnóstico, sem gravar de novo
+    Dado que um arquivo com o valor "1.005" na conta "11125001" já foi carregado
+    Quando carrego o mesmo arquivo de novo
+    Então a carga informa que o arquivo já existia
+    E o resumo é igual ao da primeira carga
+    E o arquivo continua registrado uma única vez
+
+  Cenário: Arquivo sem uma coluna do layout da fonte é reprovado sem interromper a carga
+    Quando carrego um arquivo sem a coluna "valor_orcado"
+    Então nada é publicado além do staging
+    E a validação registra um erro de "CONTRATO_ENTRADA"
+    E o arquivo fica registrado como "REJEITADO"
 
   Cenário: O orçamento anual não é multiplicado pelos meses
     Quando carrego a amostra de 10 linhas reais

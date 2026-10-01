@@ -3,7 +3,7 @@
 -- etl/relatorio_validacao.py executa os blocos e grava docs/validacao.md.
 
 -- [V01] Linhas por etapa da carga (staging x publicadas) | staging = componentes + totais + não mapeadas
-SELECT s.id_snapshot, s.nome_arquivo, s.total_linhas,
+SELECT s.id_snapshot, s.nome_arquivo, s.situacao, s.versao_parser, s.total_linhas,
        (SELECT COUNT(*) FROM stg_receita_atual g WHERE g.id_snapshot = s.id_snapshot) AS staging,
        (SELECT COUNT(*) FROM receita_componente_mensal f JOIN conta_receita c USING (id_conta)
          WHERE c.id_snapshot = s.id_snapshot) AS componentes,
@@ -76,7 +76,7 @@ FROM item_negociacao i JOIN negociacao n USING (id_negociacao)
 LEFT JOIN credito_em_negociacao r ON r.id_credito = i.id_credito AND r.id_negociacao = i.id_negociacao
 WHERE n.status = 'ATIVA' AND r.id_credito IS NULL;
 
--- [V14] Documentos pseudonimizados com formato inválido (devem ser SHA-256 hex) | 0 linhas
+-- [V14] Documentos pseudonimizados com formato inválido (HMAC-SHA-256 em hexadecimal, 64 caracteres) | 0 linhas
 SELECT id_sujeito FROM sujeito_passivo
 WHERE documento_pseudonimizado NOT REGEXP '^[0-9a-f]{64}$';
 
@@ -91,3 +91,20 @@ SELECT 'sujeito_passivo' AS tabela, origem_dado, COUNT(*) AS linhas FROM sujeito
 UNION ALL SELECT 'credito_tributario', origem_dado, COUNT(*) FROM credito_tributario GROUP BY origem_dado
 UNION ALL SELECT 'imovel', origem_dado, COUNT(*) FROM imovel GROUP BY origem_dado
 UNION ALL SELECT 'pagamento', origem_dado, COUNT(*) FROM pagamento GROUP BY origem_dado;
+
+-- [V17] Classificação de uma conta divergente entre órgãos do mesmo snapshot (redundância controlada) | 0 linhas
+SELECT id_snapshot, ano, codigo_original, COUNT(DISTINCT papel, codigo_tributo,
+       COALESCE(codigo_componente, ''), codigo_formatado) AS classificacoes
+FROM conta_receita
+GROUP BY id_snapshot, ano, codigo_original
+HAVING COUNT(DISTINCT papel, codigo_tributo, COALESCE(codigo_componente, ''), codigo_formatado) > 1;
+
+-- [V18] Arquivo reprovado com receita publicada ou publicado com erro de contrato | 0 linhas
+SELECT s.id_snapshot, s.situacao,
+       (SELECT COUNT(*) FROM conta_receita c WHERE c.id_snapshot = s.id_snapshot) AS contas_publicadas,
+       (SELECT COUNT(*) FROM resultado_validacao v WHERE v.id_snapshot = s.id_snapshot
+         AND v.regra = 'CONTRATO_ENTRADA') AS erros_de_contrato
+FROM fonte_snapshot s
+WHERE (s.situacao = 'REJEITADO' AND EXISTS (SELECT 1 FROM conta_receita c WHERE c.id_snapshot = s.id_snapshot))
+   OR (s.situacao = 'PUBLICADO' AND EXISTS (SELECT 1 FROM resultado_validacao v
+                                           WHERE v.id_snapshot = s.id_snapshot AND v.regra = 'CONTRATO_ENTRADA'));
