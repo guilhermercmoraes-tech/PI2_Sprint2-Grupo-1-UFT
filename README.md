@@ -9,9 +9,9 @@ docs/        requisitos e UML, modelagem ER (3FN), arquitetura de dados, E3, val
 sql/         schema.sql (MySQL 8.4), dados_referencia.sql, seed_sintetico.sql, validacao.sql
 etl/         amostra, parser/validação, carga idempotente, relatório de validação
 src/estruturas/  grafo, tabela hash, heap de prioridade (Parte 1 da Sprint 2)
-tests/       testes unitários e de integração (pytest)
+tests/       testes unitários, de integração (MySQL) e de aceitação em Gherkin (tests/aceitacao)
 data/amostra/    amostra pública de 10 linhas reais (único dado versionado)
-scripts/     utilitários locais (MySQL portátil)
+scripts/     quality gates, testes de mutação, demonstração da Parte 1 e MySQL portátil
 ```
 
 ## Como executar
@@ -19,28 +19,32 @@ scripts/     utilitários locais (MySQL portátil)
 Requisitos: Python 3.12+ e MySQL 8.4.
 
 ```bash
-python -m pip install -r requirements.txt
-cp .env.example .env          # preencher DB_PASSWORD, PSEUDONIMO_SAL e DB_NAME_TESTE
+python -m pip install -r requirements-dev.txt   # execução + testes + quality gates
+cp .env.example .env                            # preencher DB_PASSWORD e DB_NAME_TESTE
 ```
+
+Só para executar o ETL, sem testes, basta `requirements.txt`.
 
 Criar os bancos e o usuário da aplicação (uma vez, como root):
 
 ```sql
 CREATE DATABASE pi2_tributario CHARACTER SET utf8mb4;
 CREATE DATABASE pi2_tributario_teste CHARACTER SET utf8mb4;
-CREATE USER 'pi2_app'@'localhost' IDENTIFIED BY '<senha forte>';
+CREATE USER 'pi2_app'@'127.0.0.1' IDENTIFIED BY '<senha forte>';
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE VIEW, SHOW VIEW
-  ON pi2_tributario.* TO 'pi2_app'@'localhost';
+  ON pi2_tributario.* TO 'pi2_app'@'127.0.0.1';
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE VIEW, SHOW VIEW
-  ON pi2_tributario_teste.* TO 'pi2_app'@'localhost';
+  ON pi2_tributario_teste.* TO 'pi2_app'@'127.0.0.1';
 ```
+
+O host `127.0.0.1` é o mesmo de `DB_HOST` no `.env`. Separar um usuário só de leitura e escrita (sem `CREATE`, `DROP` e `ALTER`) para a aplicação é pendência registrada em `docs/PROTOCOLOS_SEGURANCA_AUDITORIA.md` (A5).
 
 Pipeline:
 
 ```bash
 python -m etl.amostra "<caminho>/receita_acessoinformacao (1).csv"   # gera data/amostra (já versionada)
 python -m etl.sql_runner                                             # recria esquema + referência + semente sintética
-python -m etl.carregar_receita data/amostra/receita_amostra_10.csv   # carga idempotente (SHA-256)
+python -m etl.carregar_receita data/amostra/receita_amostra_10.csv   # valida o contrato e publica ou reprova; idempotente
 python -m etl.relatorio_validacao                                    # executa sql/validacao.sql → docs/validacao.md
 python -m pytest                                                     # todos os testes
 ```
@@ -52,12 +56,11 @@ python -m pytest                                                     # todos os 
 Toda etapa de desenvolvimento e toda integração passa pelos mesmos gates (detalhes em `docs/REQUISITOS_UML.md` §23):
 
 ```bash
-python -m pip install -r requirements-dev.txt
 python scripts/quality_gate.py             # G1–G9: testes, cobertura, complexidade, tamanho, dependências, tipos
-python scripts/quality_gate.py --mutacao   # inclui G10: testes de mutação (~20 min)
+python scripts/quality_gate.py --mutacao   # inclui G10: testes de mutação (lento: de 7 a 20 min, conforme a máquina)
 ```
 
-O script grava `docs/qualidade.md` e termina com código 1 se algum gate falhar. No GitHub, `.github/workflows/qualidade.yml` roda G1–G9 em cada push e G1–G10 em cada pull request para `main`.
+O script grava `docs/qualidade.md` e termina com código 1 se algum gate falhar. No GitHub, `.github/workflows/qualidade.yml` roda G1–G9 em cada push para a `main` e G1–G10, com mutação, toda segunda-feira e sob demanda (aba Actions → Run workflow). O repositório usa só a `main`, com desenvolvimento baseado no tronco: cada integração passa pelos gates (ver `docs/parte4/README.md`).
 
 ## Dados
 

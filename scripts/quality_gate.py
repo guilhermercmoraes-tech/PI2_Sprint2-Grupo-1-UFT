@@ -1,7 +1,7 @@
 """Quality gates do projeto: executa todas as verificações e bloqueia a integração se alguma falhar.
 
 Uso:
-    python scripts/quality_gate.py              # gates G1–G8; G9 usa o último resultado de mutação
+    python scripts/quality_gate.py              # gates G1–G9; G10 usa o último resultado de mutação
     python scripts/quality_gate.py --mutacao    # também executa os testes de mutação (lento)
 
 Saída: docs/qualidade.md, saida/qualidade.json. Código de saída 1 se algum gate falhar.
@@ -185,7 +185,7 @@ def relatorio(gates: list[Gate]) -> str:
         "# Quality gates",
         "",
         f"Gerado por `python scripts/quality_gate.py` em {datetime.now():%d/%m/%Y %H:%M}. "
-        "A integração (merge) só é permitida com todos os gates aprovados.",
+        "Nenhuma integração na `main` é aceita com gate reprovado.",
         "",
         "| Gate | Verificação | Limite | Obtido | Situação |",
         "|---|---|---|---|---|",
