@@ -1,8 +1,8 @@
 # Validação do banco — Sprint 2
 
-Gerado por `python -m etl.relatorio_validacao` em 30/09/2026 12:22, a partir de `sql/validacao.sql`, no MySQL 8.4 com a amostra de 10 linhas reais (`data/amostra/receita_amostra_10.csv`) e a semente sintética (`sql/seed_sintetico.sql`).
+Gerado por `python -m etl.relatorio_validacao` em 01/10/2026 12:13, a partir de `sql/validacao.sql`, no MySQL 8.4 com a amostra de 10 linhas reais (`data/amostra/receita_amostra_10.csv`) e a semente sintética (`sql/seed_sintetico.sql`).
 
-V01–V08 validam os **dados reais** de receita. V09–V16 validam a estrutura do módulo operacional com **dados sintéticos** identificados.
+V01–V08, V17 e V18 validam os **dados reais** de receita e o contrato da carga. V09–V16 validam a estrutura do módulo operacional com **dados sintéticos** identificados.
 
 ## V01 — Linhas por etapa da carga (staging x publicadas)
 
@@ -10,7 +10,7 @@ V01–V08 validam os **dados reais** de receita. V09–V16 validam a estrutura d
 **Obtido:** 1 linha(s)
 
 ```sql
-SELECT s.id_snapshot, s.nome_arquivo, s.total_linhas,
+SELECT s.id_snapshot, s.nome_arquivo, s.situacao, s.versao_parser, s.total_linhas,
        (SELECT COUNT(*) FROM stg_receita_atual g WHERE g.id_snapshot = s.id_snapshot) AS staging,
        (SELECT COUNT(*) FROM receita_componente_mensal f JOIN conta_receita c USING (id_conta)
          WHERE c.id_snapshot = s.id_snapshot) AS componentes,
@@ -19,9 +19,9 @@ SELECT s.id_snapshot, s.nome_arquivo, s.total_linhas,
 FROM fonte_snapshot s
 ```
 
-| id_snapshot | nome_arquivo | total_linhas | staging | componentes | totais |
-|---|---|---|---|---|---|
-| 1 | receita_amostra_10.csv | 10 | 10 | 8 | 2 |
+| id_snapshot | nome_arquivo | situacao | versao_parser | total_linhas | staging | componentes | totais |
+|---|---|---|---|---|---|---|---|
+| 1 | receita_amostra_10.csv | PUBLICADO | 0.2.0 | 10 | 10 | 8 | 2 |
 
 ## V02 — Conciliação conta-pai x soma dos componentes
 
@@ -133,7 +133,7 @@ FROM resultado_validacao GROUP BY regra, gravidade ORDER BY gravidade, regra
 
 | regra | gravidade | ocorrencias | exemplo |
 |---|---|---|---|
-| CONCILIACAO_PAI_FILHOS | INFO | 1 | todas as contas-pai conferem com a soma dos componentes |
+| CONCILIACAO_PAI_FILHOS | INFO | 1 | nenhuma divergência entre as contas-pai e a soma dos componentes |
 
 ## V09 — Invariante: apropriações não excedem o pagamento
 
@@ -213,7 +213,7 @@ WHERE n.status = 'ATIVA' AND r.id_credito IS NULL
 
 _Nenhuma linha retornada._
 
-## V14 — Documentos pseudonimizados com formato inválido (devem ser SHA-256 hex)
+## V14 — Documentos pseudonimizados com formato inválido (HMAC-SHA-256 em hexadecimal, 64 caracteres)
 
 **Esperado:** 0 linhas  
 **Obtido:** 0 linha(s)
@@ -262,3 +262,36 @@ UNION ALL SELECT 'pagamento', origem_dado, COUNT(*) FROM pagamento GROUP BY orig
 | credito_tributario | SINTETICO | 5 |
 | imovel | SINTETICO | 3 |
 | pagamento | SINTETICO | 2 |
+
+## V17 — Classificação de uma conta divergente entre órgãos do mesmo snapshot (redundância controlada)
+
+**Esperado:** 0 linhas  
+**Obtido:** 0 linha(s)
+
+```sql
+SELECT id_snapshot, ano, codigo_original, COUNT(DISTINCT papel, codigo_tributo,
+       COALESCE(codigo_componente, ''), codigo_formatado) AS classificacoes
+FROM conta_receita
+GROUP BY id_snapshot, ano, codigo_original
+HAVING COUNT(DISTINCT papel, codigo_tributo, COALESCE(codigo_componente, ''), codigo_formatado) > 1
+```
+
+_Nenhuma linha retornada._
+
+## V18 — Arquivo reprovado com receita publicada ou publicado com erro de contrato
+
+**Esperado:** 0 linhas  
+**Obtido:** 0 linha(s)
+
+```sql
+SELECT s.id_snapshot, s.situacao,
+       (SELECT COUNT(*) FROM conta_receita c WHERE c.id_snapshot = s.id_snapshot) AS contas_publicadas,
+       (SELECT COUNT(*) FROM resultado_validacao v WHERE v.id_snapshot = s.id_snapshot
+         AND v.regra = 'CONTRATO_ENTRADA') AS erros_de_contrato
+FROM fonte_snapshot s
+WHERE (s.situacao = 'REJEITADO' AND EXISTS (SELECT 1 FROM conta_receita c WHERE c.id_snapshot = s.id_snapshot))
+   OR (s.situacao = 'PUBLICADO' AND EXISTS (SELECT 1 FROM resultado_validacao v
+                                           WHERE v.id_snapshot = s.id_snapshot AND v.regra = 'CONTRATO_ENTRADA'))
+```
+
+_Nenhuma linha retornada._

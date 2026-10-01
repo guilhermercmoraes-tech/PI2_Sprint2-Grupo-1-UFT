@@ -2,20 +2,21 @@
 
 ## O que foi feito
 
-- **Parte 1 — estruturas de dados:** grafo (lista de adjacência), tabela hash (encadeamento separado) e heap binária com fila de prioridade versionada, implementadas do zero, com análise Big-O e um documento por estrutura ([docs/parte1/](docs/parte1/README.md)). A tabela hash passou a usar capacidade prima, depois que um teste revelou chaves concentradas num único *bucket*.
-- **Parte 2 — banco:** modelo ER em 3FN com 43 tabelas e 3 views em MySQL 8.4 ([docs/modelagem_er.md](docs/modelagem_er.md), [sql/schema.sql](sql/schema.sql)). Carga idempotente de **dados reais** (amostra de 10 linhas do portal de transparência) com linhagem até a linha do CSV. 16 consultas de validação executadas e documentadas ([docs/validacao.md](docs/validacao.md)). Evidências por critério em [docs/parte2/](docs/parte2/README.md).
-- **E3:** HTTPS verificado nos dois hosts (certificados válidos, TLS 1.2 e 1.3) e protocolos de conexão e auditoria fundamentados em Kurose ([docs/parte3/](docs/parte3/README.md)).
-- **Testes e qualidade:** 191 testes (163 unitários, 15 de integração com MySQL, 13 cenários Gherkin) e 10 quality gates aprovados: cobertura 97%, mutação 91,7%, complexidade ≤ 10, dependências e tipos ([docs/qualidade.md](docs/qualidade.md)). Configurados para rodar em cada push no GitHub Actions (workflow ainda não executado: o repositório não está no GitHub).
+- **Parte 1 — estruturas de dados:** grafo (lista de adjacência), tabela hash (encadeamento separado) e heap binária com fila de prioridade versionada, implementadas do zero, com análise Big-O e um documento por estrutura ([docs/parte1/](docs/parte1/README.md)). Testes de propriedade comparam cada estrutura com uma referência independente; foi assim que a revisão de 01/10 achou e corrigiu um defeito na fila.
+- **Parte 2 — banco:** modelo ER em 3FN, com as redundâncias controladas declaradas: 43 tabelas e 3 views em MySQL 8.4 ([docs/modelagem_er.md](docs/modelagem_er.md), [sql/schema.sql](sql/schema.sql)). A carga de **dados reais** (amostra de 10 linhas do portal) valida o arquivo inteiro antes de publicar e guarda a linhagem até a linha do CSV. 18 consultas de validação executadas e documentadas ([docs/validacao.md](docs/validacao.md)). Evidências por critério em [docs/parte2/](docs/parte2/README.md).
+- **E3:** HTTPS verificado nos dois hosts (TLS 1.2 e 1.3, certificados válidos) e protocolos de conexão e auditoria fundamentados em Kurose ([docs/parte3/](docs/parte3/README.md)).
+- **Testes e qualidade:** 264 testes (217 unitários, 32 de integração com MySQL, 15 cenários Gherkin) e 10 quality gates aprovados: cobertura 98,1%, mutação 93,0% com os sobreviventes verificados, complexidade ≤ 10, dependências e tipos ([docs/qualidade.md](docs/qualidade.md)).
 
 ## Decisões de modelagem
 
-1. **Dois módulos:** receita observada (dados reais) e domínio operacional (estrutura com dados sintéticos identificados). Os CSVs públicos não têm devedores, dívidas, vencimentos nem localização.
-2. **Conta-pai ≠ componente:** só os 4 componentes são somados; o total da conta-pai fica em tabela de conferência. Somar tudo duplicaria a receita (verificado na amostra).
-3. **Snapshot com SHA-256:** reimportar o mesmo arquivo não cria receita nova.
+1. **Dois módulos:** receita observada (dados reais) e domínio operacional (dados sintéticos identificados). Os dados públicos não têm devedores nem dívidas.
+2. **Conta-pai ≠ componente:** só os 4 componentes são somados; o total da conta-pai fica em tabela de conferência.
+3. **Snapshot com situação:** o mesmo arquivo (SHA-256) é publicado uma única vez, e um arquivo reprovado só é reprocessado por regras novas. O banco garante as duas coisas.
 4. **Nenhum valor derivado persistido:** saldo, valor venal total e arrecadado por tributo são views.
-5. **Dinheiro em DECIMAL; códigos como texto;** orçamento guardado uma vez por vigência, não por mês.
-6. **Uma negociação ativa por crédito** garantida pela PK de `credito_em_negociacao`.
-7. **Pseudonimização** de CPF/CNPJ com sal secreto; não tratada como anonimização.
+5. **Dinheiro em DECIMAL; códigos como texto;** orçamento guardado uma vez por vigência.
+6. **Uma negociação ativa por crédito,** garantida pela PK de `credito_em_negociacao`.
+7. **Pseudonimização especificada** (HMAC-SHA-256, chave fora do banco), ainda sem código: o piloto não tem dados pessoais.
+8. **Repositório só com a `main`:** desenvolvimento baseado no tronco (Valente, ESM, cap. 10, §10.3), com os gates em cada push. A rubrica cita "branch da sprint"; a justificativa está em [docs/parte4/](docs/parte4/README.md).
 
 ## Divisão de trabalho
 
@@ -29,8 +30,8 @@
 
 ## Impedimentos levados para a Sprint 3
 
-1. **Dados de dívida ativa:** sem créditos, pagamentos e inscrições da Sefin, o módulo operacional só tem dados sintéticos. Pedido institucional descrito em PA-12.
+1. **Dados de dívida ativa:** sem os dados da Sefin, o módulo operacional só tem dados sintéticos (PA-12).
 2. **Escopo do score (PA-14):** o enunciado pede score individual de recuperabilidade; o modelo prioriza o território. Decisão pendente com o professor.
-3. **Portal NUCLEOGOV respondeu 403** a partir da rede de teste; faltam os caminhos exatos dos endpoints usados na extração de 07/07/2026.
-4. **Carga completa:** validar o pipeline com as 176.993 linhas e com a base histórica (`receita_palmas.csv`, cujos meses de 2016–2018 repetem o valor anual).
-5. **Entrega no GitHub:** commits, branch `sprint2`, pull request e primeira execução do workflow de qualidade (guia em `planejamento/`).
+3. **Portal NUCLEOGOV respondeu 403** a partir da rede de teste; faltam os caminhos exatos dos endpoints da extração de 07/07/2026.
+4. **Carga completa:** validar o pipeline com as 176.993 linhas e com a base histórica (`receita_palmas.csv`).
+5. **Publicação no GitHub:** criar o repositório e enviar a `main` (os commits já existem); primeira execução do workflow de qualidade (guia na Parte 4).

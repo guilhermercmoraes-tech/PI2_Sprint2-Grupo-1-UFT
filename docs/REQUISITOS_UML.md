@@ -1,5 +1,5 @@
 # Projeto Integrador 2 — Inteligência Tributária de Palmas
-## Relatório consolidado de requisitos e modelo UML — v2.2
+## Relatório consolidado de requisitos e modelo UML — v2.3
 
 > **Finalidade:** registrar, de forma auditável no Git, o problema, as histórias de usuário, a arquitetura, o papel da Inteligência Artificial, os requisitos, os diagramas UML e as decisões do Projeto Integrador 2.
 >
@@ -21,6 +21,7 @@
 | 2.0 | 29/09/2026 | Revisão conforme a nota técnica: glossário tributário; domínio reescrito (`SujeitoPassivo`, `CreditoTributario`, `Pagamento`/`Apropriacao`, `InscricaoDividaAtiva`); atributos derivados removidos das classes persistidas; "tax gap observado" renomeado para gap de pagamento; indicadores com contrato de cálculo; prioridades RF-02, RF-03 e RNF-07 elevadas a MUST; critérios de aceitação; diagramas formalizados em Mermaid; ponte para o ER da Sprint 2. **Removidos do escopo:** camadas de arrecadação, Score de Participação, votação regional, propostas de reforma e integração com WhatsApp (RF-22 a RF-26 e IES-07). |
 | 2.1 | 30/09/2026 | Garantia de qualidade: §19 passa a apontar os testes que comprovam cada requisito (e o que ainda não tem código); nova §23 com quality gates (testes unitários, integração, aceitação em Gherkin, cobertura, mutação, complexidade, manutenibilidade, tamanho, dependências e tipos) executados em cada integração; §21 atualizada. |
 | 2.2 | 30/09/2026 | Diagrama explicativo em cada seção (fluxogramas, sequência, temporais, gráficos); relatório complementar `COMO_O_SISTEMA_FUNCIONA.md`; seção de referências com matriz referência × etapa do projeto. |
+| 2.3 | 01/10/2026 | Correções da revisão de consonância (`REVISAO_CONSONANCIA_01-10-2026.md`): fila de prioridade não reaproveita a versão de uma ação retirada e reinserida; 3 lacunas de teste que a análise de mutação classificara como equivalentes; contrato do arquivo validado antes da publicação, com snapshot `PUBLICADO`/`REJEITADO` garantido pelo banco (§20.2); escopo de permissão como chave estrangeira; redundâncias controladas de `conta_receita` declaradas (§20.1); pseudonimização especificada como HMAC-SHA-256; repositório só com a `main` (desenvolvimento baseado no tronco, §23.2); testes de propriedade e verificador de sobreviventes (§23.4). |
 
 ### 0.2 Ordem de engenharia
 
@@ -333,7 +334,7 @@ flowchart LR
 | `AjusteCredito` | Cancelamentos, acréscimos (multa, juros) e estornos, com data e fundamento. |
 | `InscricaoDividaAtiva` | Número, data de inscrição, situação. Relação com créditos **N:M até validação** — não impor 1:1. |
 | `Pagamento` / `Apropriacao` | Um pagamento se reparte em apropriações; cada apropriação aponta um crédito e separa principal e encargos. Permite pagamentos parciais e repartidos. |
-| `Negociacao` / `ItemNegociacao` | Um acordo pode abranger várias dívidas. **No máximo uma negociação ativa por crédito**, inclusive sob concorrência. |
+| `Negociacao` / `ItemNegociacao` | Um acordo pode abranger várias dívidas. **No máximo uma negociação ativa por crédito**: o banco garante uma única reserva por crédito, inclusive entre transações concorrentes; o serviço mantém a reserva coerente com o status da negociação. |
 
 Um pagamento pode quitar vários créditos, e um crédito pode receber vários pagamentos. A **apropriação** registra quanto de cada pagamento foi para cada crédito. Exemplo da semente sintética:
 
@@ -766,7 +767,7 @@ classDiagram
         +UUID idPermissao
         +String operacao
         +String recurso
-        +String escopoTerritorial
+        +Regiao regiaoRestrita [0..1]
     }
     class Representacao {
         +String papel
@@ -1234,37 +1235,38 @@ pie showData
 | Requisito | Caso de uso | Classe / serviço | Sequência | Critério de aceitação | Evidência de teste (Sprint 2) |
 |---|---|---|---|---|---|
 | RF-01 | Autenticar-se | Usuario, ServicoAutenticacao | 17.1 | Sessão inválida → negado | ❌ Sem código de autenticação (só a tabela `usuario`) |
-| RF-02 / RNF-02 | todos restritos | PerfilPermissao, Permissao, ServicoAutorizacao | 17.1, 17.2 | Perfil sem permissão → negado e auditado | ❌ Sem serviço de autorização (só as tabelas) |
+| RF-02 / RNF-02 | todos restritos | PerfilPermissao, Permissao, ServicoAutorizacao | 17.1, 17.2 | Perfil sem permissão → negado e auditado | ❌ Sem serviço de autorização. Só as tabelas, com restrições testadas: **I** `test_permissao_por_regiao_tem_integridade_referencial` (escopo por região existente; sem duplicata no município) |
 | RF-03 / RNF-03 | Registrar auditoria | RegistroAuditoria, ServicoAuditoria | 17.1, 17.2 | Registro sem senha/token, com correlação | ⚠️ Parcial — **A** `auditoria.feature` (2 cenários); **I** `test_banco::test_auditoria_exige_ator_coerente`. Não testado: ausência de senha/token e cadeia de integridade (ver PROTOCOLOS A2–A5) |
 | RF-04 / RNF-07 | Visualizar mapa público | ValorIndicador (agregado) | — | Consulta anônima sem identificadores | ❌ Sem interface |
 | RF-05 | Gerenciar plano | PlanoArrecadacao, AcaoPlano | 17.1 | Nova versão ao salvar | ❌ Só estrutura (`uq_plano_versao`) |
-| RF-06 / RF-27 | Consultar indicadores | ServicoIndicadores, CreditoTributario, Apropriacao | — | 1.000 − 300 = 700; sem lançamentos → indisponível | ❌ Sem serviço; restrição `ck_vi_disp` existe, sem teste |
+| RF-06 / RF-27 | Consultar indicadores | ServicoIndicadores, CreditoTributario, Apropriacao | — | 1.000 − 300 = 700; sem lançamentos → indisponível | ❌ Sem serviço; a restrição `ck_vi_disp` é testada: **I** `test_restricoes_do_modelo_rejeitam_dados_invalidos[ck_vi_disp]` |
 | RF-10 / RF-11 | Consultar resultados da IA | PreparadorVTC, CalculadorIAET | 17.3 | Mesma entrada e versão → mesmo resultado | ❌ Sprint de IA |
-| RF-12 / RF-13 / RF-28 | Consultar resultados da IA | MotorAnalitico, EstrategiaAnalitica, Previsao | 17.3 | Teste temporal fora da amostra; rótulo distinto | ❌ Sprint de IA; restrição `ck_prev_intervalo` existe, sem teste |
+| RF-12 / RF-13 / RF-28 | Consultar resultados da IA | MotorAnalitico, EstrategiaAnalitica, Previsao | 17.3 | Teste temporal fora da amostra; rótulo distinto | ❌ Sprint de IA; a restrição `ck_prev_intervalo` é testada: **I** `test_restricoes_do_modelo_rejeitam_dados_invalidos[ck_prev_intervalo]` |
 | RF-14 | Consultar resultados da IA | MotorAnalitico, InscricaoDividaAtiva | 17.3 | Coorte, estoque elegível e horizonte informados | ❌ Sprint de IA |
 | RF-15 / RF-16 | Solicitar adesão / Gerenciar solicitações | SolicitacaoAdesao, Representacao | — | Sem representação → negado | ❌ Só estrutura |
 | RF-17 | Acompanhar negociação | CreditoTributario, AjusteCredito, Apropriacao | — | Saldo reconstruído = saldo exibido | ✅ **A** `negociacao_saldo.feature` (saldo derivado; apropriação ≤ pagamento); **I** `test_banco::test_saldo_derivado_dos_movimentos`; **V** V09, V10 |
 | RF-18 / RNF-10 | Gerenciar negociações | Negociacao, ItemNegociacao | 17.2 | Concorrência não cria dois acordos ativos | ⚠️ **A** `negociacao_saldo.feature` (segunda negociação ativa → erro 1062); **I** `test_banco::test_uma_negociacao_ativa_por_credito`; **V** V12, V13. Testado em sequência; duas transações **simultâneas** ainda não |
 | RF-21 | Consultar status | máquina de estados | 18 | Transição inválida rejeitada | ❌ Sem serviço (ENUM de estados existe) |
 | RNF-01 / RNF-14 | — | configuração | — | Segredos fora do código e do Git | ⚠️ **U** `test_etl_utilitarios::TestConfig` (leitura do `.env`); `.gitignore` conferido manualmente, sem teste automatizado |
-| RNF-06 | Carga de dados | `etl.carregar_receita` | — | Carga transacional e idempotente | ✅ **A** `carga_receita.feature` (reimportação; fração de centavo interrompe a publicação); **I** `test_recarga_e_idempotente`, `test_fracao_de_centavo_interrompe_a_publicacao` |
-| RNF-09 | Carga de dados | `fonte_snapshot`, `stg_receita_atual` | — | Toda medida aponta fonte e linha | ✅ **A** `carga_receita.feature` ("cada valor aponta para a linha de origem"); **U** `test_amostra::test_linha_origem_aponta_para_o_arquivo_original` |
-| RNF-13 | — | SujeitoPassivo | — | Documento pseudonimizado | ⚠️ **V** V14 (formato SHA-256). A função de pseudonimização com sal ainda não existe (dados sintéticos) |
+| RNF-06 | Carga de dados | `etl.carregar_receita`, `etl.parser.validar_arquivo` | — | Carga transacional e idempotente; arquivo com erro de contrato não é publicado e a recarga não esconde a reprovação | ✅ **A** `carga_receita.feature` (reimportação; fração de centavo; recarga de arquivo reprovado; coluna ausente); **I** `test_recarga_e_idempotente`, `test_recarga_devolve_o_mesmo_resumo_da_primeira_vez`, `test_arquivo_reprovado_nao_e_mascarado_na_recarga`, `test_nova_versao_das_regras_reprocessa_o_arquivo_reprovado`, `test_banco_impede_publicar_o_mesmo_arquivo_duas_vezes`, `test_coluna_ausente_reprova_o_arquivo_sem_erro_cru`, `test_componentes_sem_a_conta_pai_reprovam_o_arquivo_sem_erro_cru`, `test_linha_com_campos_a_menos_reprova_o_arquivo_sem_erro_cru`; **U** `test_parser::TestContratoDoArquivo`, `TestValidarArquivo`; **V** V18 |
+| RNF-09 | Carga de dados | `fonte_snapshot`, `stg_receita_atual` | — | Toda medida aponta fonte e linha física de origem | ✅ **A** `carga_receita.feature` ("cada valor aponta para a linha de origem"); **U** `test_amostra::test_linha_origem_aponta_para_o_arquivo_original`, `test_parser::TestLeituraDaFonte` (campo com quebra de linha, linha em branco) |
+| RNF-13 | — | SujeitoPassivo | — | Documento pseudonimizado | ⚠️ **V** V14 (formato hexadecimal de 64 caracteres). Especificada como HMAC-SHA-256 com chave fora do banco (`PSEUDONIMO_CHAVE`); sem código, porque o piloto não tem dados pessoais |
 
 ### 19.2 Entregáveis técnicos da Sprint 2
 
 | Item (§20) | Código | Evidência de teste |
 |---|---|---|
-| Regras de ETL §20.2: códigos por vigência, pai alternativo não somado, 2022 muda códigos | `etl/parser.py` | **U** `test_parser::TestClassificacao` (4 casos), `TestDecimal`, `TestInterpretar`; **M** parser |
+| Regras de ETL §20.2: códigos por vigência, pai alternativo não somado, 2022 muda códigos, ano fora das vigências não classificado | `etl/parser.py` | **U** `test_parser::TestClassificacao`, `TestDecimal`, `TestInterpretar`, `TestContratoDoArquivo`; **M** parser |
+| Contrato do arquivo antes da publicação: 14 colunas, linhas alinhadas, componente com conta-pai; snapshot `PUBLICADO` ou `REJEITADO` | `etl/parser.py` (`validar_arquivo`), `etl/carregar_receita.py`, `fonte_snapshot` | **U** `TestValidarArquivo`, `TestComponentesSemPai`, `TestLeituraDaFonte`; **I** testes de contrato de `test_banco.py`; **A** `carga_receita.feature`; **V** V18; **M** parser |
 | Somar tudo duplicaria a receita; soma só componentes | `v_tributo_mes` | **U** `test_amostra::test_somar_todas_as_linhas_duplicaria_a_receita`; **A** `carga_receita.feature`; **I** `test_view_tributo_mes_soma_so_componentes` |
-| Conta-pai = soma dos 4 componentes | `etl.parser.conciliar`, `v_conciliacao_pai_filhos` | **U** `test_amostra::test_pais_conferem_com_soma_dos_componentes`, `test_parser::test_conciliar_detecta_componente_faltando`; **I** `test_conciliacao_sem_divergencia`, `test_divergencia_de_conciliacao_e_registrada`; **A** `carga_receita.feature`; **V** V02, V03 |
+| Conta-pai = soma dos 4 componentes; componentes sem o total do mês são divergência | `etl.parser.conciliar`, `v_conciliacao_pai_filhos` | **U** `test_amostra::test_pais_conferem_com_soma_dos_componentes`, `test_parser::test_conciliar_detecta_componente_faltando`, `TestConciliarCompetencias`; **I** `test_conciliacao_sem_divergencia`, `test_divergencia_de_conciliacao_e_registrada`, `test_componentes_sem_o_total_do_mes_sao_divergencia_registrada`; **A** `carga_receita.feature`; **V** V02, V03 |
 | Orçamento anual não multiplicado | `orcamento_informado` | **I** `test_orcamento_nao_e_multiplicado`; **A** `carga_receita.feature`; **V** V06 |
 | Valores de 2025/jan conferem com a fonte | `v_tributo_mes` | **U** `test_amostra::test_totais_de_jan_2025`; **A** `carga_receita.feature`; **V** V04 |
-| 3FN: fato rejeita conta TOTAL; mês fora de 1–12 rejeitado | `schema.sql` (FK composta, CHECK) | **I** `test_fato_rejeita_conta_total` (erro 1452), `test_mes_invalido_rejeitado` (erro 3819) |
-| Grafo (lista de adjacência, BFS, DFS, ciclo, componentes) | `src/estruturas/grafo.py` | **U** `test_grafo.py` (13 casos, incluindo a ordem da DFS do Algoritmo 24.12 de Lintzmayer & Mota); **A** `estruturas.feature`; **M** grafo |
+| 3FN: fato rejeita conta TOTAL; mês fora de 1–12 rejeitado; demais restrições do modelo | `schema.sql` (FK composta, CHECK, UNIQUE) | **I** `test_fato_rejeita_conta_total` (erro 1452), `test_mes_invalido_rejeitado` (erro 3819), `test_restricoes_do_modelo_rejeitam_dados_invalidos` (7 restrições); **V** V17 (redundância controlada de `conta_receita`) |
+| Grafo (lista de adjacência, BFS, DFS, ciclo, componentes) | `src/estruturas/grafo.py` | **U** `test_grafo.py`, incluindo a ordem da DFS do Algoritmo 24.12 de Lintzmayer & Mota e o teste de propriedade contra implementações de referência; **A** `estruturas.feature`; **M** grafo |
 | Tabela hash (encadeamento, redimensionamento, índice secundário) | `src/estruturas/indice_hash.py` | **U** `test_indice_hash.py`; **A** `estruturas.feature` (Gersting, Exemplo 50); **M** índice hash |
-| Heap binária e fila de prioridade versionada | `src/estruturas/heap_prioridade.py` | **U** `test_heap.py`; **A** `estruturas.feature`; **M** heap |
-| 16 consultas de validação executam | `sql/validacao.sql`, `etl/relatorio_validacao.py` | **I** `test_consultas_de_validacao_executam`, `test_relatorio_de_validacao_executa_todos_os_blocos`; **U** `TestRelatorioValidacao` |
+| Heap binária e fila de prioridade versionada | `src/estruturas/heap_prioridade.py` | **U** `test_heap.py`, com a regressão da ação reinserida e testes de propriedade contra o `heapq` e um modelo de referência; **A** `estruturas.feature`; **M** heap |
+| 18 consultas de validação executam | `sql/validacao.sql`, `etl/relatorio_validacao.py` | **I** `test_consultas_de_validacao_executam`, `test_relatorio_de_validacao_executa_todos_os_blocos`; **U** `TestRelatorioValidacao` |
 
 ## 20. Ponte para a Sprint 2 (ER, ETL e estruturas)
 
@@ -1280,7 +1282,7 @@ pie showData
 | `usuario`, `perfil_permissao`, `permissao`, `representacao`, `registro_auditoria` | §16.1 | Sintéticos identificados |
 | `plano_arrecadacao`, `acao_plano`, `solicitacao_adesao`, `indicador`, `valor_indicador`, `previsao` | §16.3 | Estrutura; valores observados de receita quando aplicável |
 
-Regras de 3FN herdadas do modelo: nenhum atributo derivado é coluna (saldo, valor venal total, arrecadado, percentual da meta); avaliação PVG depende de (imóvel, ano) e fica em tabela própria; associações N:M viram tabelas de junção; toda linha sintética tem `origem_dado = 'SINTETICO'`.
+Regras de 3FN herdadas do modelo: nenhum atributo derivado é coluna (saldo, valor venal total, arrecadado, percentual da meta); avaliação PVG depende de (imóvel, ano) e fica em tabela própria; associações N:M viram tabelas de junção; toda linha sintética tem `origem_dado = 'SINTETICO'`. Exceção declarada: `conta_receita` mantém duas redundâncias controladas (o papel, alvo da FK composta, e a classificação repetida por órgão), descritas em `docs/modelagem_er.md` §3.4, com a restrição `ck_conta_papel` e a consulta V17 que impedem a anomalia.
 
 **Não usar** `contratos`, `despesas`, `licitacoes` ou `servidores` como fonte de devedores: CPF/CNPJ de fornecedor não indica dívida fiscal.
 
@@ -1319,15 +1321,16 @@ Verde: dados reais. Azul: dados sintéticos identificados (`origem_dado = 'SINTE
 4. `valor_orcado` se repete nos 12 meses: guardar uma ocorrência anual.
 5. 2026 é parcial; mês ausente não vira zero.
 6. Não unir `receita_palmas.csv` (2010–2018) e `receita_acessoinformacao.csv` (2018–2026) somando períodos comuns sem reconciliar códigos e conceitos.
-7. Carga idempotente pela chave candidata; versão da extração registrada à parte.
+7. Carga idempotente: o mesmo arquivo (SHA-256) é publicado no máximo uma vez; um arquivo reprovado só é reprocessado por uma nova versão das regras (`VERSAO_PARSER`, registrada no snapshot). O banco garante as duas coisas.
+8. Contrato do arquivo antes de publicar (Relatório de Auditoria, p. 9): as 14 colunas da fonte, o mesmo número de campos em cada linha e a conta-pai de todo componente. Um erro reprova o arquivo inteiro (`REJEITADO`), que fica só com staging e evidências.
+9. Ano fora das vigências aprovadas (2019–2021 e 2022–2026) não é classificado: a conta fica só no staging.
 
 ```mermaid
 flowchart TD
-    CSV[Arquivo CSV] --> SHA{SHA-256 já<br/>carregado?}
-    SHA -- sim --> FIM1[Nada é gravado<br/>regra 7]
-    SHA -- não --> STG[Staging textual<br/>com linha de origem]
-    STG --> VAL{Linha válida?<br/>centavos, mês, códigos como texto}
-    VAL -- não --> ERR[Erro registrado<br/>publicação interrompida]
+    CSV[Arquivo CSV] --> SHA{"SHA-256 já publicado, ou<br/>reprovado por estas regras?"}
+    SHA -- sim --> FIM1["Nada é gravado; devolve o<br/>resumo registrado (regra 7)"]
+    SHA -- não --> VAL{"Contrato do arquivo<br/>(regra 8): colunas, campos,<br/>centavos, mês, conta-pai"}
+    VAL -- não --> ERR["REJEITADO: staging<br/>e evidências, nada publicado"]
     VAL -- sim --> MAP{"Código no mapeamento<br/>1112500 · 1114511 · 1112530<br/>órgão 2798"}
     MAP -- "não (inclui pais alternativos<br/>111250 e 111253 — regra 2)" --> NM[Fica só no staging]
     MAP -- sim --> PAP{Conta-pai?}
@@ -1399,7 +1402,7 @@ pi2-inteligencia-tributaria/
 ├── pytest.ini              # marcadores por requisito (rf17, rf18, rnf06…)
 ├── requirements.txt, requirements-dev.txt
 ├── .env.example            # sem segredos reais (.env fica fora do Git)
-├── .github/workflows/qualidade.yml   # quality gates em cada push e pull request
+├── .github/workflows/qualidade.yml   # G1–G9 em cada push; G1–G10 toda semana e sob demanda
 ├── docs/
 │   ├── REQUISITOS_UML.md   # este documento
 │   ├── COMO_O_SISTEMA_FUNCIONA.md  # fluxo de trabalho com diagramas
@@ -1414,11 +1417,11 @@ pi2-inteligencia-tributaria/
 ├── tests/
 │   ├── test_*.py           # unitários e de integração (test_banco.py)
 │   └── aceitacao/          # Gherkin: *.feature + definições de passos
-├── scripts/                # quality_gate.py, mutacao.py, filtro_anotacoes.py, mysql_portatil.ps1
+├── scripts/                # quality_gate.py, mutacao.py, sobreviventes.py, filtro_anotacoes.py, demo_parte1.py, mysql_portatil.ps1
 └── data/amostra/           # única base versionada: 10 linhas reais
 ```
 
-Cada mudança no Git referencia RF/RNF, decisão de arquitetura e teste; branches curtas, revisão por pull request e integração frequente [E10]. Nenhuma integração é aceita com quality gate reprovado (§23).
+Cada mudança no Git referencia RF/RNF, decisão de arquitetura e teste. O repositório usa só a `main`, com desenvolvimento baseado no tronco: todo commit vai para o branch principal e passa pelos gates [E10, cap. 10, §10.3]. Nenhuma integração é aceita com quality gate reprovado (§23).
 
 ```mermaid
 flowchart LR
@@ -1517,8 +1520,10 @@ flowchart LR
 | Etapa | Gates | Onde |
 |---|---|---|
 | Desenvolvimento (antes de cada commit) | G1–G9 | `python scripts/quality_gate.py` |
-| Integração em branch (cada push) | G1–G9 | GitHub Actions (`.github/workflows/qualidade.yml`), com MySQL 8.4 em contêiner |
-| Integração na `main` (pull request) | G1–G10 | GitHub Actions, com `--mutacao` |
+| Integração na `main` (cada push) | G1–G9 | GitHub Actions (`.github/workflows/qualidade.yml`), com MySQL 8.4 em contêiner |
+| Toda segunda-feira e sob demanda (aba Actions → Run workflow) | G1–G10 | GitHub Actions, com `--mutacao`, que é lenta demais para cada push |
+
+O repositório usa só a `main`. É o **desenvolvimento baseado no tronco** que o ESM descreve junto da integração contínua: "todo desenvolvimento ocorre no branch principal" (Valente, cap. 10, §10.3). A revisão por pares, que num fluxo com branches viria do pull request, é feita sobre os commits da `main` e registrada no diário de bordo.
 
 ```mermaid
 sequenceDiagram
@@ -1529,17 +1534,15 @@ sequenceDiagram
     participant CI as GitHub Actions + MySQL
     D->>L: antes do commit
     L-->>D: G1–G9 aprovados
-    D->>G: git push (branch)
+    D->>G: git push (main)
     G->>CI: dispara workflow
     CI-->>G: G1–G9
-    D->>G: pull request para main
-    G->>CI: dispara workflow com --mutacao
-    CI-->>G: G1–G10
-    alt todos aprovados
-        G-->>D: merge liberado
-    else algum reprovado
-        G-->>D: merge bloqueado · relatórios anexados
+    alt algum reprovado
+        G-->>D: commit marcado com falha · relatórios anexados · corrigir antes do próximo
     end
+    Note over G,CI: toda segunda-feira ou sob demanda
+    G->>CI: workflow com --mutacao
+    CI-->>G: G1–G10
 ```
 
 ### 23.3 Tipos de teste
@@ -1555,31 +1558,34 @@ Funcionalidades em Gherkin:
 
 | Arquivo | Requisitos | Cenários |
 |---|---|---|
-| `carga_receita.feature` | RNF-06, RNF-09, Parte 2 | carga publica componentes e totais separados; reimportação não duplica; arrecadação soma só componentes; fração de centavo interrompe a publicação; orçamento não multiplicado |
+| `carga_receita.feature` | RNF-06, RNF-09, Parte 2 | carga publica componentes e totais separados; reimportação não duplica; arrecadação soma só componentes; fração de centavo interrompe a publicação e o arquivo fica `REJEITADO`; recarga de arquivo reprovado repete o diagnóstico; arquivo sem uma coluna da fonte é reprovado; orçamento não multiplicado |
 | `negociacao_saldo.feature` | RF-17, RF-18, RNF-10 | saldo derivado dos movimentos; segunda negociação ativa rejeitada; apropriação ≤ pagamento |
 | `auditoria.feature` | RF-03, RNF-03 | ação de usuário sem usuário rejeitada; tarefa automática aceita com identificador do sistema |
 | `estruturas.feature` | Parte 1 | fila de prioridade com pagamento; colisão por encadeamento (Gersting, Ex. 50); componentes pela conta-pai |
 
 ### 23.4 Testes de mutação
 
-Um mutante é uma cópia do código com uma falha lógica injetada, por exemplo `<` trocado por `<=` ou `continue` por `break`. Se algum teste falha, o mutante está **morto**. Se todos passam, ele **sobreviveu**: existe um comportamento que nenhum teste verifica.
+Um mutante é uma cópia do código com uma falha lógica injetada, por exemplo `<` trocado por `<=` ou `continue` por `break`. Se algum teste falha, o mutante está **morto**. Se todos passam, ele **sobreviveu**: ou existe um comportamento que nenhum teste verifica (lacuna), ou o mutante não muda o comportamento (equivalente) [A1].
 
 Regras de execução:
 - Cada módulo roda em cópia isolada fora da pasta de trabalho, dividido em fatias paralelas.
 - Mutantes dentro de anotações de tipo são ignorados: com `from __future__ import annotations` elas não são executadas, e nenhum teste poderia detectá-los (mutantes equivalentes, `scripts/filtro_anotacoes.py`).
 - Se nenhum mutante for válido (comando de teste quebrado), o gate **falha**, em vez de relatar sucesso vazio.
+- Os sobreviventes passam por `python scripts/sobreviventes.py`: cada um é aplicado a uma cópia do código, e o comportamento é comparado com o do original numa carga diferencial escrita à parte dos testes [A4]. Comportamento diferente é lacuna de teste, e não equivalência.
 
-Resultado em 30/09/2026. A primeira rodada passou do mínimo por pouco; os sobreviventes foram analisados um a um e as lacunas reais ganharam testes:
+Resultados (as duas primeiras colunas são de 30/09; a terceira, de 01/10/2026, depois das correções da revisão de consonância):
 
-| Módulo | 1ª rodada | Após novos testes | Mortos / válidos | Ignorados (anotações) |
-|---|---|---|---|---|
-| `src/estruturas/heap_prioridade.py` | 85,1% | **88,1%** | 266 / 302 | 0 |
-| `src/estruturas/indice_hash.py` | 84,9% | **96,2%** | 230 / 239 | 0 |
-| `src/estruturas/grafo.py` | 82,7% | **84,0%** | 68 / 81 | 22 |
-| `etl/parser.py` | 81,9% | **95,3%** | 163 / 171 | 11 |
-| **Total** | 84,0% | **91,7%** | 727 / 793 | 33 |
+| Módulo | 30/09, 1ª rodada | 30/09, após novos testes | 01/10 | Mortos / válidos | Ignorados (anotações) |
+|---|---|---|---|---|---|
+| `src/estruturas/heap_prioridade.py` | 85,1% | 88,1% | **89,5%** | 257 / 287 | 0 |
+| `src/estruturas/indice_hash.py` | 84,9% | 96,2% | **96,2%** | 230 / 239 | 0 |
+| `src/estruturas/grafo.py` | 82,7% | 84,0% | **85,2%** | 69 / 81 | 22 |
+| `etl/parser.py` | 81,9% | 95,3% | **96,3%** | 260 / 270 | 66 |
+| **Total** | 84,0% | 91,7% | **93,0%** | 816 / 877 | 88 |
 
-**Lacunas reais encontradas pela mutação e corrigidas com testes:**
+O total de mutantes cresceu porque o parser ganhou a validação do arquivo inteiro.
+
+**Lacunas reais encontradas pela mutação em 30/09 e corrigidas com testes:**
 
 | Módulo | Falha que os testes não detectavam | Teste adicionado |
 |---|---|---|
@@ -1597,20 +1603,41 @@ Resultado em 30/09/2026. A primeira rodada passou do mínimo por pouco; os sobre
 | hash | Chave ausente em bucket ocupado; busca por objeto igual mas distinto; iteração | `test_chave_ausente_em_bucket_ocupado`, `test_chave_igual_mas_outro_objeto_e_encontrada`, `test_iteracao_percorre_todas_as_chaves` |
 | parser | Mês 0 e 12, anos 2019–2020, arredondamento para cima, código longo, campos textuais, soma errada com 4 componentes, componente duplicado | `TestLimites`, `TestCamposTextuais`, `TestConciliar` |
 
-**Sobreviventes restantes (66): mutantes equivalentes.** Nenhum teste pode distingui-los, porque o comportamento observável não muda:
+**O que a revisão de 01/10/2026 mostrou sobre a análise de 30/09.** Em 30/09, os 66 sobreviventes foram classificados como equivalentes. Aplicando cada um e comparando o comportamento, três não eram:
 
-| Tipo | Exemplos | Por que é equivalente |
+| Mutante | Por que não era equivalente | Teste que agora o mata |
 |---|---|---|
-| Identidade × igualdade com inteiros pequenos e literais | `menor == i` → `menor is i`; `c.papel == "TOTAL"` → `is` | O Python reutiliza o mesmo objeto para inteiros pequenos e strings literais |
-| Operações que dão o mesmo número | `2*i + 1` → `2*i \| 1` | `2*i` é sempre par (idem `2m \| 1` e `2m ^ 1` no crescimento da hash) |
-| Teste de primalidade com mesmo resultado | `k % 2 == 0` → `<= 0`; `divisor += 2` → `+= 1`; `max(2, n)` → `max(1, n)`; `d*d <= k` → `d + d <= k` | Resto nunca é negativo; ímpar não é divisível por par; 1 não é primo e o laço segue até 2; testar divisores a mais só custa tempo |
-| Valores só usados para igualdade ou ordem relativa | versão começando em −1 ou 2; sequência somando 2 | Só importa serem distintos e crescentes |
-| Construção da heap começando de índice maior (17 mutantes na linha 32) | `len//2 - 1` → `len//2`, `len*2 - 1` | Os índices extras não têm filhos: só trabalho a mais, mesmo resultado |
-| Empates tratados com `<=` em vez de `<` | `a[i] < a[pai]` → `<=` | Com elementos iguais, trocar ou não trocar mantém a heap válida |
-| Detecção de ciclo revisitando vértices já concluídos | `cor[w] == BRANCO` → `>= BRANCO` | Mesma resposta, com mais trabalho |
-| `_subir` comparando com o elemento anterior em vez do pai (linha 68) | `(i-1)//2` → `(i-1)//1` | Mantém o vetor ordenado, que também é uma heap válida; só custa O(n) por inserção |
+| `pai = (i - 1) // 2` → `(i - 1) // 1` | Depois de uma extração o vetor deixa de estar ordenado; inserir comparando com o vizinho, e não com o pai, gera uma heap inválida (`[1, 5, 2]` + 3 → `[1, 5, 2, 3]`) | `test_insercao_depois_de_extracao_sobe_ate_o_pai`; `test_heap_equivale_ao_heapq_com_insercoes_e_extracoes_intercaladas` |
+| `len // 2 - 1` → `len - 2 - 1` | Com 2 itens a construção não roda, e `[5, 1]` fica inválida | `test_construcao_em_lote_para_todas_as_permutacoes` |
+| `r == rotulo` → `r is rotulo` (grafo) | Um rótulo lido de fora, do banco por exemplo, é outro objeto com o mesmo texto | `test_filtro_de_rotulo_compara_por_igualdade_e_nao_por_identidade` |
 
-Os casos de "mesmo resultado, mais trabalho" só seriam detectados por testes de desempenho (contagem de comparações), recomendados para a próxima sprint.
+A mutação também não detecta **defeitos de omissão**. A fila de prioridade reaproveitava a versão de uma ação retirada e reinserida, e nenhum mutante podia revelar isso, porque o defeito era a falta de um contador único. Ele foi encontrado por um teste diferencial contra um modelo de referência (`test_fila_equivale_ao_modelo_de_referencia`) [A3, A4] e corrigido com o número de sequência de cada entrada, a mesma ideia das notas do `heapq` [F10].
+
+**Lacunas no código novo de 01/10.** O verificador e a análise de cada sobrevivente acharam oito, todas fechadas com testes:
+- primeiro ano da vigência 2022–2026: `test_limites_das_vigencias`;
+- linha física de registros consecutivos: `test_registros_consecutivos_em_linhas_pares_e_impares`;
+- linha com vários campos a menos: `test_linha_com_varios_valores_a_menos`;
+- cabeçalho com quebra de linha: `test_cabecalho_com_quebra_de_linha_entre_aspas`;
+- imutabilidade de `Ocorrencia`, e regra e papel vindos de fora comparados por identidade: `TestValoresVindosDeFora`.
+
+O verificador também teve um falso positivo, causado por bytecode em cache; a causa e a correção estão em `docs/parte2/5_manutencao_e_qualidade.md`, §2.
+
+**Sobreviventes restantes (61).** `python scripts/sobreviventes.py` não encontra diferença de comportamento em nenhum. Cada um está numa das categorias abaixo, classificado por inspeção. Isso é evidência de equivalência, não prova, porque decidir se um mutante é equivalente é indecidível em geral [A2].
+
+| Tipo | Exemplos | Por que o comportamento não muda |
+|---|---|---|
+| Identidade × igualdade com o mesmo objeto | `self._vigente.get(id) == seq` → `is`; `menor == i` → `is`; `padrao is _VAZIO` → `==`; cores do ciclo e contagens comparadas com `is` | O objeto é o mesmo por construção (o mesmo inteiro está no dicionário e na entrada da heap; o sentinela é um único `object()`), ou é um inteiro pequeno que o CPython reaproveita (cores 0 a 2, comprimentos de código, 4 componentes) |
+| Operações que dão o mesmo número | `2*i + 1` → `2*i \| 1` ou `^ 1`; `2m + 1` → `2m \| 1` no crescimento da hash | `2*i` e `2m` são sempre pares |
+| Teste de primalidade com mesmo resultado | `k % 2 == 0` → `<= 0`; `divisor += 2` → `+= 1`; `max(2, n)` → `max(1, n)`; `d*d <= k` → `d + d <= k` | Resto nunca é negativo; testar divisores a mais só custa tempo; 1 não é primo e o laço segue até 2 |
+| Valores que só precisam ser distintos e crescentes | sequência começando em 1 ou −1, ou somando 2; cores `BRANCO = −1` ou `PRETO = 3` | Só importa que sejam diferentes entre si e cresçam |
+| Construção da heap começando de índice maior (16 mutantes) | `len // 2 - 1` → `len // 2`, `len >> 1`, `len \| 1` | Os índices extras são folhas: só trabalho a mais |
+| Empates tratados com `<=` | `a[i] < a[pai]` → `<=`, e o mesmo em `_descer` | Trocar elementos iguais mantém a heap válida e a mesma ordem de extração |
+| Comparação num domínio que não tem o caso diferente | `i > 0` → `i != 0` (índice nunca é negativo); `menor == i` → `<=` (menor nunca é menor que i); `papel == "TOTAL"` → `>=` ou `<=` (só existem TOTAL e COMPONENTE, e um componente a mais no conjunto de pais não muda a busca de órfãos); `len(codigo) == len(pai) + 1` → `<=` (um código mais curto que começa com o pai é o próprio pai, tratado antes); `cor[raiz] != BRANCO` → `> BRANCO` e `cor[w] == BRANCO` → `<= BRANCO` (as cores não são negativas) | O valor que distinguiria as duas versões nunca ocorre |
+| Valor padrão que dá o mesmo resultado | `contagem.get(chave, 0)` → `1` ou `−1` | Qualquer padrão diferente de 4 acusa a divergência de um total sem componentes |
+| Faixas sobrepostas | vigência 2022–2026 começando em 2021 | 2021 é encontrado antes, na vigência 2019–2021 |
+| Mesma resposta, mais trabalho | `cor[w] == BRANCO` → `> BRANCO`; `cor[raiz] != BRANCO` → `< BRANCO` | A detecção de ciclo continua correta, mas revisita vértices concluídos; num grafo acíclico com muitos caminhos o custo pode crescer exponencialmente |
+
+Os casos de "mesma resposta, mais trabalho" só seriam detectados por testes de desempenho (contagem de passos), recomendados para a próxima sprint.
 
 ```mermaid
 flowchart LR
@@ -1618,48 +1645,52 @@ flowchart LR
     MUT --> RUN[Roda os testes do módulo]
     RUN --> R{Algum teste falhou?}
     R -- sim --> K["Morto ✔<br/>os testes detectam essa falha"]
-    R -- não --> S["Sobreviveu ✘"]
-    S --> AN{Muda o comportamento<br/>observável?}
-    AN -- sim --> NT[Lacuna: escrever teste novo]
+    R -- não --> S["Sobreviveu"]
+    S --> V{"sobreviventes.py:<br/>comportamento muda<br/>na carga diferencial?"}
+    V -- sim --> NT[Lacuna: escrever teste novo]
+    V -- não --> AN{Inspeção: muda o<br/>comportamento observável?}
+    AN -- sim --> NT
     AN -- não --> EQ[Equivalente: documentar]
 ```
 
 ### 23.5 Resultado atual
 
-Execução de 30/09/2026 (`python scripts/quality_gate.py --mutacao`), relatório completo em `docs/qualidade.md`:
+Execução de 01/10/2026 12:33 (`python scripts/quality_gate.py --mutacao`), relatório completo em `docs/qualidade.md`:
 
 | Gate | Obtido | Situação |
 |---|---|---|
-| G1 Testes unitários | 163/163 | ✅ |
-| G2 Testes de integração (MySQL) | 15/15 | ✅ |
-| G3 Testes de aceitação (Gherkin) | 13/13 cenários | ✅ |
-| G4 Cobertura de linhas e ramos | 97,4% (era 79% antes desta etapa) | ✅ |
-| G5 Complexidade ciclomática | máx. 10, média 2,8 (`carregar()` tinha 18 e foi dividida) | ✅ |
-| G6 Índice de manutenibilidade | mín. 43,6 | ✅ |
-| G7 Tamanho | maior módulo 162 SLOC; maior função 38 linhas | ✅ |
+| G1 Testes unitários | 217/217 | ✅ |
+| G2 Testes de integração (MySQL) | 32/32 | ✅ |
+| G3 Testes de aceitação (Gherkin) | 15/15 | ✅ |
+| G4 Cobertura de linhas e ramos | 98,1% | ✅ |
+| G5 Complexidade ciclomática | máx. 8 (componentes_sem_pai), média 2,8 | ✅ |
+| G6 Índice de manutenibilidade | mín. 43,1 (parser.py) | ✅ |
+| G7 Tamanho | maior módulo 202 SLOC; maior função 31 linhas | ✅ |
 | G8 Dependências | 4/4 contratos | ✅ |
-| G9 Tipos (Pyright) | 0 erros | ✅ |
-| G10 Mutação | 91,7% (727/793) | ✅ |
+| G9 Tipos (Pyright) | 0 erro(s) | ✅ |
+| G10 Mutação | 93,0% (816/877 mortos, nesta rodada) | ✅ |
 
-**Resultado: aprovado.** Duas correções no código vieram diretamente dos gates: a refatoração de `carregar()` (complexidade 18 → 6) e a separação de `relatorio_validacao.gerar()` para permitir o teste sem sobrescrever o relatório real.
+**Resultado: aprovado.** Correções no código que vieram diretamente dos gates: a refatoração de `carregar()` (complexidade 18 → 6), a separação de `relatorio_validacao.gerar()` para permitir o teste sem sobrescrever o relatório real e, em 01/10, a divisão de `interpretar()` (complexidade 13 → 4).
 
 ### 23.6 Verificação dos próprios gates
 
-Um gate que nunca reprova não garante nada. Foram feitas duas provas inversas:
+Um gate que nunca reprova não garante nada. Provas de que os gates e as ferramentas reprovam quando devem:
 1. **Defeito proposital no código:** removida a regra que rejeita fração de centavo em `etl/parser.py`. O gate reprovou G1 (1 unitário), G2 (1 de integração) e G3 (1 cenário Gherkin), cada um apontando o teste que falhou.
 2. **Import proibido:** criado um módulo em `src/estruturas` importando `pymysql`. O G8 apontou o contrato "Estruturas de dados não dependem de ETL nem de banco" como quebrado.
+3. **Reprovação real (01/10/2026):** o G5 reprovou a primeira versão da validação do arquivo inteiro (`interpretar` com complexidade 13), e a função foi dividida antes do commit.
+4. **Verificador de sobreviventes:** acusou os 3 mutantes não equivalentes de 30/09 e as lacunas do código novo; depois dos testes novos, não acusa nenhum. Os testes da correção da fila foram executados contra o código antigo, e falham nele.
 
 ### 23.7 Definição de pronto de cada requisito
 
 1. Critério de aceitação escrito em Gherkin (`tests/aceitacao/`), marcado com o ID do requisito.
 2. Testes unitários ou de integração para as regras internas.
 3. Linha da §19 atualizada com a evidência de teste.
-4. Quality gates G1–G9 aprovados localmente e no push; G10 aprovado no pull request.
-5. Mutantes sobreviventes analisados: ou ganham teste, ou são registrados como equivalentes em `docs/mutacao.md`.
+4. Quality gates G1–G9 aprovados localmente e no push; G10 aprovado na execução semanal ou sob demanda.
+5. Mutantes sobreviventes analisados: `python scripts/sobreviventes.py` não acusa diferença de comportamento, e cada um ganha teste ou é registrado como equivalente em §23.4.
 
 ```mermaid
 flowchart LR
-    A[Critério em Gherkin<br/>com o ID do requisito] --> B[Testes das regras internas] --> C[§19 atualizada] --> D[G1–G9 local e no push] --> E[G10 no pull request] --> F[Sobreviventes analisados] --> PR([Pronto])
+    A[Critério em Gherkin<br/>com o ID do requisito] --> B[Testes das regras internas] --> C[§19 atualizada] --> D[G1–G9 local e no push] --> E[G10 semanal ou sob demanda] --> F[Sobreviventes verificados] --> PR([Pronto])
 ```
 
 ---
@@ -1699,7 +1730,10 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 | [R16] | Roteiro Gov.br | | | | | ● | | ● | |
 | [T1]–[T7] | RFCs de TLS, HMAC, hash e cookies | ● | | | | ● | | ● | |
 | [D1]–[D4] | Documentos do projeto | ● | ● | ● | ● | ● | ● | ● | ● |
-| [F1]–[F9] | Ferramentas e manuais | | | ● | | | | | ● |
+| [F1]–[F10] | Ferramentas e manuais | | | ● | ● | | | | ● |
+| [A1]–[A4] | DeMillo et al.; Budd e Angluin; Claessen e Hughes; McKeeman — mutação, propriedades, testes diferenciais | | | | | | | | ● |
+| [A5] | Kahn — ordenação topológica | | | | ● | | | | |
+| [A6] | Codd — 2FN e 3FN | | | ● | | | | | |
 
 ### Livros consultados
 
@@ -1707,14 +1741,15 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 - Etapa 4 — §10.3, p. 668: representação por **lista de adjacência** (Exemplo 1, Tabela 1).
 - Etapa 4 — §10.4, p. 682 e p. 686 (Definição 5): **componentes conexos** e grafo dirigido **fracamente conexo**.
 - Etapa 4 — §11.4, Algoritmo 1 (DFS), p. 789, e Algoritmo 2 (BFS), p. 791: busca em profundidade e em largura, **O(e)** passos.
-- Etapa 4 — §11.1, Teorema 5 e Corolário 1, p. 754: altura ⌈logₘ l⌉ de árvore balanceada, base do **O(log n)** da heap.
+- Etapa 4 — §11.1, Teorema 5 e Corolário 1, p. 754: limite de altura de árvores m-árias (h ≥ ⌈logₘ l⌉; igualdade só para árvores cheias e balanceadas). **Não** fundamenta a altura da heap, que vem de [L2], cap. 12, p. 154: a "árvore m-ária completa" de Rosen (p. 756) tem todas as folhas no mesmo nível, o que a heap não exige.
 - Etapa 3 — Exercícios suplementares do cap. 11, p. 805: **árvore B** de grau k, estrutura dos índices do MySQL/InnoDB.
 - Etapa 4 — §4.5, p. 287–288: função de dispersão h(k) = k mod m e **colisão**.
 
 **[L2]** LINTZMAYER, Carla Negri; MOTA, Guilherme Oliveira. *Análise de Algoritmos e de Estruturas de Dados*. (versão em PDF consultada).
 - Etapa 4 — cap. 12, §12.1, p. 154–167: **heap binário** (construção, inserção, remoção, alteração).
 - Etapa 4 — cap. 14, p. 173–174: **tabelas hash**, colisões inevitáveis, O(1) no caso médio.
-- Etapa 4 — cap. 24, Algoritmos 24.5 e 24.11 (BFS, p. 310 e 322), 24.7 (DFS iterativa, p. 316), 24.9 e 24.12 (DFS recursiva, p. 320 e 322), 24.10 (componentes, p. 321): comparados com o código em 2.000 digrafos aleatórios, com ordem de visita idêntica.
+- Etapa 4 — cap. 12, p. 154: a altura do heap binário é ⌊lg n⌋, base do **O(log n)** de inserir e extrair.
+- Etapa 4 — cap. 24, Algoritmos 24.5 e 24.11 (BFS, p. 310 e 322), 24.7 (DFS iterativa, p. 316), 24.9 e 24.12 (DFS recursiva, p. 320 e 322), 24.10 (componentes, p. 321). A DFS do código, iterativa, visita na mesma ordem da DFS recursiva 24.12, e a BFS na mesma ordem da 24.5: conferido em 1.000 digrafos aleatórios pelo teste versionado `test_grafo.py::TestPropriedades`.
 - Etapa 4 — §24.4.2, p. 330–332: um digrafo admite ordenação topológica se, e somente se, **não tem ciclos**.
 
 **[L3]** GERSTING, Judith L. *Fundamentos matemáticos para a ciência da computação: matemática discreta e suas aplicações*. Rio de Janeiro: LTC. (edição do PDF consultado).
@@ -1739,7 +1774,7 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 - [E7] cap. 7 Arquitetura — Etapa 5: monólito modular.
 - [E8] cap. 8 Testes — Etapa 8: testes unitários, de integração e de sistema.
 - [E9] cap. 9 Refactoring — Etapa 8: divisão de `carregar()` sem mudar o comportamento.
-- [E10] cap. 10 DevOps — Etapa 8: integração contínua e quality gates.
+- [E10] cap. 10 DevOps — Etapa 8: integração contínua e quality gates; §10.3 (p. 15 do PDF): desenvolvimento baseado no trunk, base da decisão de usar só a `main`.
 
 ### Normas, legislação e artigos (Nota Técnica)
 
@@ -1766,10 +1801,21 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 - **[T1]** RFC 8446 — TLS 1.3. — Etapas 1, 5 e 7.
 - **[T2]** RFC 8996 — descontinuação de TLS 1.0 e 1.1. — Etapas 1 e 7.
 - **[T3]** RFC 9325 / BCP 195 — recomendações de uso seguro de TLS. — Etapas 1 e 7.
-- **[T4]** RFC 2104 — HMAC. — Etapa 7: cadeia de MAC da auditoria.
+- **[T4]** RFC 2104 — HMAC. — Etapa 7: cadeia de MAC da auditoria e pseudonimização especificada (HMAC-SHA-256; chave de pelo menos 32 bytes, §3).
 - **[T5]** RFC 6151 — MD5 inadequado para segurança. — Etapa 7.
 - **[T6]** RFC 6194 — considerações de segurança do SHA-1. — Etapa 7.
 - **[T7]** RFC 6265 e draft-ietf-httpbis-rfc6265bis — cookies HTTP e atributo `SameSite`. — Etapa 5.
+
+### Artigos sobre teste e modelagem
+
+Referências externas, citadas pelo conhecimento geral da área e **não conferidas** nos livros do curso:
+
+- **[A1]** DEMILLO, R. A.; LIPTON, R. J.; SAYWARD, F. G. Hints on test data selection: help for the practicing programmer. *IEEE Computer*, v. 11, n. 4, 1978. — Etapa 8: testes de mutação.
+- **[A2]** BUDD, T. A.; ANGLUIN, D. Two notions of correctness and their relation to testing. *Acta Informatica*, v. 18, n. 1, 1982. — Etapa 8: decidir se um mutante é equivalente é indecidível em geral.
+- **[A3]** CLAESSEN, K.; HUGHES, J. QuickCheck: a lightweight tool for random testing of Haskell programs. *ICFP*, 2000. — Etapa 8: testes de propriedade.
+- **[A4]** McKEEMAN, W. M. Differential testing for software. *Digital Technical Journal*, v. 10, n. 1, 1998. — Etapa 8: testes diferenciais e `scripts/sobreviventes.py`.
+- **[A5]** KAHN, A. B. Topological sorting of large networks. *Communications of the ACM*, v. 5, n. 11, 1962. — Etapa 4: referência do teste de detecção de ciclo.
+- **[A6]** CODD, E. F. *Further Normalization of the Data Base Relational Model*. IBM Research Report RJ909, 1971. — Etapa 3: 2FN e 3FN.
 
 ### Documentos do projeto
 
@@ -1789,6 +1835,7 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 - **[F7]** import-linter (contratos de dependência). — Etapa 8.
 - **[F8]** Pyright (verificação de tipos). — Etapa 8.
 - **[F9]** GitHub Actions (integração contínua). — Etapa 8.
+- **[F10]** Python Software Foundation. `heapq`, *Priority Queue Implementation Notes*. — Etapa 4: remoção preguiçosa com contador crescente, a ideia da correção da fila em 01/10/2026.
 
 ---
 

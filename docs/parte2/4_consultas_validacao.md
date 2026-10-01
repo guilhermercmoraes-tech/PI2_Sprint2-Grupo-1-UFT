@@ -1,7 +1,7 @@
 # Critério 4 — Consultas SQL de validação executadas e documentadas
 
 > **Enunciado (Parte 2):** *"consultas SQL de validação executadas e documentadas"*.
-> **Evidências:** [`sql/validacao.sql`](../../sql/validacao.sql) (as consultas), [`validacao.md`](../validacao.md) (resultado completo de cada uma, gerado em 30/09/2026 12:22), testes `test_consultas_de_validacao_executam` e `test_relatorio_de_validacao_executa_todos_os_blocos`.
+> **Evidências:** [`sql/validacao.sql`](../../sql/validacao.sql) (as consultas), [`validacao.md`](../validacao.md) (resultado completo de cada uma, gerado em 01/10/2026 12:12), testes `test_consultas_de_validacao_executam` e `test_relatorio_de_validacao_executa_todos_os_blocos`.
 
 ## 1. Como as consultas são executadas e documentadas
 
@@ -19,9 +19,9 @@ flowchart LR
 python -m etl.relatorio_validacao
 ```
 
-## 2. As 16 consultas
+## 2. As 18 consultas
 
-V01 a V08 validam os **dados reais** de receita; V09 a V16 validam a estrutura do módulo operacional com **dados sintéticos**.
+V01 a V08, V17 e V18 validam os **dados reais** de receita e o contrato da carga; V09 a V16 validam a estrutura do módulo operacional com **dados sintéticos**.
 
 ```mermaid
 flowchart TB
@@ -37,6 +37,9 @@ flowchart TB
         V11[V11 mesmo contribuinte, várias inscrições] --- V12[V12 negociação ativa duplicada]
         V13[V13 negociação sem reserva] --- V14[V14 formato do pseudônimo]
         V15[V15 maiores saldos] --- V16[V16 origem dos registros]
+    end
+    subgraph CONTRATO["Contrato da carga e redundância controlada (dados reais)"]
+        V17[V17 classificação igual entre órgãos] --- V18[V18 reprovado sem publicação]
     end
 ```
 
@@ -55,11 +58,13 @@ flowchart TB
 | V11 | Mesmo sujeito em várias inscrições/imóveis (dados sintéticos) | sujeito 1: 3 créditos em 2 imóveis · sujeito 2: 2 créditos | 2 linha(s) | ✅ |
 | V12 | Créditos com mais de uma negociação ativa | 0 linhas | 0 linha(s) | ✅ |
 | V13 | Negociações ativas sem reserva de exclusividade | 0 linhas | 0 linha(s) | ✅ |
-| V14 | Documentos pseudonimizados com formato inválido (devem ser SHA-256 hex) | 0 linhas | 0 linha(s) | ✅ |
+| V14 | Documentos pseudonimizados com formato inválido (HMAC-SHA-256 em hexadecimal, 64 caracteres) | 0 linhas | 0 linha(s) | ✅ |
 | V15 | Top créditos por saldo em aberto (dados sintéticos) | ordenado por saldo | 4 linha(s) | ✅ |
 | V16 | Origem dos registros operacionais | todos SINTETICO no piloto | 4 linha(s) | ✅ |
+| V17 | Classificação de uma conta divergente entre órgãos do mesmo snapshot (redundância controlada) | 0 linhas | 0 linha(s) | ✅ |
+| V18 | Arquivo reprovado com receita publicada ou publicado com erro de contrato | 0 linhas | 0 linha(s) | ✅ |
 
-As consultas cujo resultado esperado é **0 linhas** (V03, V07, V09, V12, V13, V14) são verificações de integridade: qualquer linha retornada indicaria uma violação.
+As consultas cujo resultado esperado é **0 linhas** (V03, V07, V09, V12, V13, V14, V17 e V18) são verificações de integridade: qualquer linha retornada indicaria uma violação. A V17 confere a redundância controlada de `conta_receita` (critério 1, seção 5.4): a classificação de uma conta não pode divergir entre órgãos do mesmo snapshot. A V18 confere a regra da carga: nenhum arquivo reprovado tem receita publicada, e nenhum publicado tem erro de contrato.
 
 ## 3. Resultados que merecem destaque
 

@@ -1,7 +1,7 @@
 # Critério 3 — Banco populado com dados reais coletados em piloto
 
 > **Enunciado (Parte 2):** *"populado com dados reais coletados em piloto"*.
-> **Evidências:** [`data/amostra/receita_amostra_10.csv`](../../data/amostra/receita_amostra_10.csv), [`etl/carregar_receita.py`](../../etl/carregar_receita.py), saída da carga e contagem por tabela abaixo (execução de 30/09/2026 12:22).
+> **Evidências:** [`data/amostra/receita_amostra_10.csv`](../../data/amostra/receita_amostra_10.csv), [`etl/carregar_receita.py`](../../etl/carregar_receita.py), saída da carga e contagem por tabela abaixo (execução de 01/10/2026 12:12).
 
 ## 1. De onde vêm os dados
 
@@ -16,7 +16,7 @@
 
 ## 2. Como os dados entram
 
-A carga é **idempotente** (o mesmo arquivo não entra duas vezes, graças ao SHA-256) e **transacional** (ou entra tudo, ou nada além do staging).
+A carga **valida o arquivo inteiro antes de gravar** (cabeçalho com as 14 colunas, linhas alinhadas, valores, mês e conta-pai de cada componente) e registra a decisão: o snapshot nasce `PUBLICADO` ou `REJEITADO`. É **idempotente**: o mesmo arquivo é publicado no máximo uma vez e um arquivo reprovado só é reprocessado por uma nova versão das regras, garantias do próprio banco (critério 2). É **transacional**: ou entra tudo, ou, se reprovado, só o staging e as evidências. Repetir a carga devolve o mesmo resumo da primeira vez.
 
 ```mermaid
 sequenceDiagram
@@ -26,22 +26,22 @@ sequenceDiagram
     participant P as parser
     participant B as MySQL
     U->>C: carregar(receita_amostra_10.csv)
-    C->>C: SHA-256 do arquivo
-    C->>B: SHA-256 já existe?
+    C->>C: SHA-256 e leitura do arquivo (linha física de cada registro)
+    C->>B: há snapshot publicado, ou reprovado por estas regras?
     alt primeira carga
         B-->>C: não
-        C->>B: fonte_snapshot + 10 linhas brutas no staging
-        loop cada linha
-            C->>P: interpretar(linha)
-            P-->>C: LinhaReceita + Classificação (TOTAL ou COMPONENTE)
-        end
+        C->>P: validar_arquivo(cabeçalho, registros)
+        P-->>C: 10 linhas válidas · 0 erros de contrato
+        C->>B: fonte_snapshot PUBLICADO + 10 linhas brutas no staging
         C->>B: órgão · 10 contas (pais antes dos filhos) · 8 valores de componentes · 2 totais · orçamento
         C->>P: conciliar(linhas)
         P-->>C: nenhuma divergência
         C->>B: registra a conciliação · COMMIT
+        C->>B: lê o resumo registrado
     else mesmo arquivo de novo
-        B-->>C: sim (snapshot 1)
-        C-->>U: nada foi duplicado
+        B-->>C: sim (snapshot 1, PUBLICADO)
+        C->>B: lê o resumo registrado
+        C-->>U: o mesmo resumo · nada é gravado
     end
 ```
 
@@ -49,9 +49,10 @@ Saída real das duas cargas:
 
 ```text
 # 1ª carga
-Snapshot 1: 10 linhas lidas · 8 componentes · 2 totais · 0 não mapeadas · 0 erros · 0 divergências de conciliação
+Snapshot 1 PUBLICADO: 10 linhas lidas · 8 componentes · 2 totais · 0 não mapeadas · 0 erros de contrato · 0 divergências de conciliação
 # 2ª carga do mesmo arquivo
-Snapshot 1 já carregado (mesmo SHA-256): nada foi duplicado.
+Snapshot 1 já registrado (mesmo SHA-256 e regras): nada foi gravado de novo.
+Snapshot 1 PUBLICADO: 10 linhas lidas · 8 componentes · 2 totais · 0 não mapeadas · 0 erros de contrato · 0 divergências de conciliação
 ```
 
 ## 3. O que ficou no banco
@@ -122,6 +123,6 @@ pie showData
 
 - **Volume.** O piloto carrega **10 das 176.993 linhas**. O código já trata o arquivo inteiro (contas não mapeadas ficam registradas no staging), mas a carga completa não foi executada nem medida. É o primeiro passo recomendado para a Sprint 3.
 - **Módulo operacional sintético.** Os dados públicos não contêm contribuintes, créditos nem dívidas individuais. Todas essas tabelas estão marcadas `origem_dado = 'SINTETICO'` (consulta V16), e o pedido desses dados à Sefin está registrado como pendência (PA-12).
-- **Pseudonimização.** Não há dado pessoal real no banco. A pseudonimização com sal secreto está especificada (`PSEUDONIMO_SAL` no `.env`), mas só será exercitada quando chegarem dados pessoais.
+- **Pseudonimização especificada, sem código.** Não há dado pessoal real no banco. A regra é `HMAC-SHA-256(chave, documento)`, com a chave em `PSEUDONIMO_CHAVE` no `.env`, fora do banco e do Git (RFC 2104; LGPD, art. 13, §4º). Ela será implementada e testada quando chegarem dados pessoais; hoje a consulta V14 só confere o formato dos documentos sintéticos.
 
-**Referências:** relatório de auditoria dos CSVs (snapshot por SHA-256, contas-pai × componentes); `docs/E3_integracao_segura.md` (origem dos dados); Lei nº 13.709/2018 (LGPD).
+**Referências:** relatório de auditoria dos CSVs (snapshot por SHA-256, contrato do arquivo, contas-pai × componentes, p. 9); `docs/E3_integracao_segura.md` (origem dos dados); Lei nº 13.709/2018 (LGPD), art. 13, §4º; RFC 2104 (HMAC).

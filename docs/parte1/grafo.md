@@ -248,6 +248,13 @@ def grafo_contabil(contas: Iterable[tuple[str, str | None, dict]]) -> GrafoDirig
 | `test_sucessores_filtra_pelo_rotulo` | Filtro por tipo de relação |
 | `test_dfs_segue_a_ordem_da_busca_recursiva_do_livro` | Mesma ordem do Algoritmo 24.12 (Lintzmayer & Mota) |
 | `test_aresta_para_vertice_inexistente` | Aresta com vértice inexistente é rejeitada |
+| `test_filtro_de_rotulo_compara_por_igualdade_e_nao_por_identidade` | Rótulo lido de fora (outro objeto, mesmo texto) é encontrado |
+
+**Teste de propriedade** (Claessen e Hughes, 2000) e diferencial (McKeeman, 1998): grafos aleatórios, reprodutíveis pela semente, comparados com implementações de referência independentes.
+
+| Teste | O que comprova |
+|---|---|
+| `test_algoritmos_equivalem_as_implementacoes_de_referencia` (4 casos) | 1.000 digrafos aleatórios, com laços e ciclos: ciclo = ordenação topológica de Kahn; componentes = conjuntos disjuntos; alcance = fecho por ponto fixo; ordem de visita = DFS recursiva e BFS de Lintzmayer & Mota (Algoritmos 24.12 e 24.5) |
 
 ## Resultados
 
@@ -273,6 +280,6 @@ ISSQN 1114511: 4 componentes, soma R$ 21802997.01 = total R$ 21802997.01 → con
 
 A busca percorreu todos os vértices alcançáveis sem repetir nenhum, encontrou os imóveis e processos do mesmo contribuinte e confirmou, nos dados reais, que cada conta-pai é igual à soma dos seus componentes.
 
-**Testes:** 13 passed in 0.05s. **Mutação:** **84.0%** dos mutantes mortos (68 de 81 válidos; 22 em anotações de tipo ignorados). Os sobreviventes são equivalentes: análise em `docs/REQUISITOS_UML.md` §23.4.
+**Testes:** 18 passed in 0.18s. **Mutação:** **85,2%** dos mutantes mortos (69 de 81 válidos; 22 em anotações de tipo ignorados). Nenhum sobrevivente muda o comportamento numa carga diferencial (`python scripts/sobreviventes.py`); por isso são classificados como equivalentes, o que é evidência, não prova. Análise em `docs/REQUISITOS_UML.md` §23.4.
 
-**Referências:** Rosen §10.3 (p. 668, lista de adjacência), §10.4 (p. 682 e 686, componentes e conexidade fraca), §11.4 (p. 789 e 791, DFS e BFS); Lintzmayer & Mota cap. 24 (p. 305–332); Morin, *Open Data Structures*.
+**Referências:** Rosen §10.3 (p. 668, lista de adjacência), §10.4 (p. 682 e 686, componentes e conexidade fraca), §11.4 (p. 789 e 791, DFS e BFS); Lintzmayer & Mota cap. 24 (p. 305–332); Morin, *Open Data Structures*; Kahn, A. B. Topological sorting of large networks. *Communications of the ACM*, 5(11), 1962 (referência do teste de ciclo); Claessen e Hughes, *QuickCheck*, ICFP 2000, e McKeeman, *Differential testing for software*, 1998 (testes de propriedade e diferenciais).

@@ -4,178 +4,25 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
 
 | Módulo | Mortos | Sobreviventes | Incompetentes | Ignorados (anotações) | Score |
 |---|---|---|---|---|---|
-| `src/estruturas/heap_prioridade.py` | 266 | 36 | 0 | 0 | 88.1% |
+| `src/estruturas/heap_prioridade.py` | 257 | 30 | 0 | 0 | 89.5% |
 | `src/estruturas/indice_hash.py` | 230 | 9 | 0 | 0 | 96.2% |
-| `src/estruturas/grafo.py` | 68 | 13 | 0 | 22 | 84.0% |
-| `etl/parser.py` | 163 | 8 | 0 | 11 | 95.3% |
-| **Total** | 727 | 66 | | | **91.7%** |
+| `src/estruturas/grafo.py` | 69 | 12 | 0 | 22 | 85.2% |
+| `etl/parser.py` | 260 | 10 | 0 | 66 | 96.3% |
+| **Total** | 816 | 61 | | | **93.0%** |
 
 - **Incompetentes:** mutantes que quebram o próprio código (ex.: erro de execução na importação); não contam no score.
 - **Ignorados (anotações):** mutantes em anotações de tipo, que não são executadas por causa de `from __future__ import annotations` (mutantes equivalentes, filtrados por `scripts/filtro_anotacoes.py`).
-- A análise de cada sobrevivente (lacuna de teste ou mutante equivalente) está em `docs/REQUISITOS_UML.md`, §23.4.
+- `python scripts/sobreviventes.py` aplica cada sobrevivente e compara o comportamento com o do código original numa carga diferencial: resultado diferente é lacuna de teste. A análise de cada sobrevivente está em `docs/REQUISITOS_UML.md`, §23.4.
 
 ## Sobreviventes em `src/estruturas/heap_prioridade.py`
 
-- linha 32, `core/ReplaceBinaryOperator_Sub_Mul`
+- linha 36, `core/ReplaceBinaryOperator_Sub_Pow`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
-     def __init__(self, itens: Iterable[T] = ()) -> None:
-         self._a: list[T] = list(itens)
-         # construção de baixo para cima: O(n)
--        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) // 2 * 1, -1, -1):
-             self._descer(i)
- 
-     def inserir(self, item: T) -> None:
-```
-
-- linha 32, `core/ReplaceBinaryOperator_Sub_BitOr`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
-     def __init__(self, itens: Iterable[T] = ()) -> None:
-         self._a: list[T] = list(itens)
-         # construção de baixo para cima: O(n)
--        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) // 2 | 1, -1, -1):
-             self._descer(i)
- 
-     def inserir(self, item: T) -> None:
-```
-
-- linha 32, `core/ReplaceBinaryOperator_Sub_FloorDiv`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
-     def __init__(self, itens: Iterable[T] = ()) -> None:
-         self._a: list[T] = list(itens)
-         # construção de baixo para cima: O(n)
--        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) // 2 // 1, -1, -1):
-             self._descer(i)
- 
-     def inserir(self, item: T) -> None:
-```
-
-- linha 32, `core/ReplaceBinaryOperator_FloorDiv_Add`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
-     def __init__(self, itens: Iterable[T] = ()) -> None:
-         self._a: list[T] = list(itens)
-         # construção de baixo para cima: O(n)
--        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) + 2 - 1, -1, -1):
-             self._descer(i)
- 
-     def inserir(self, item: T) -> None:
-```
-
-- linha 32, `core/ReplaceBinaryOperator_FloorDiv_LShift`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
-     def __init__(self, itens: Iterable[T] = ()) -> None:
-         self._a: list[T] = list(itens)
-         # construção de baixo para cima: O(n)
--        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) << 2 - 1, -1, -1):
-             self._descer(i)
- 
-     def inserir(self, item: T) -> None:
-```
-
-- linha 32, `core/NumberReplacer`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
-     def __init__(self, itens: Iterable[T] = ()) -> None:
-         self._a: list[T] = list(itens)
-         # construção de baixo para cima: O(n)
--        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) // 1 - 1, -1, -1):
-             self._descer(i)
- 
-     def inserir(self, item: T) -> None:
-```
-
-- linha 32, `core/ReplaceBinaryOperator_Sub_BitXor`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
-     def __init__(self, itens: Iterable[T] = ()) -> None:
-         self._a: list[T] = list(itens)
-         # construção de baixo para cima: O(n)
--        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) // 2 ^ 1, -1, -1):
-             self._descer(i)
- 
-     def inserir(self, item: T) -> None:
-```
-
-- linha 32, `core/ReplaceBinaryOperator_FloorDiv_RShift`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
-     def __init__(self, itens: Iterable[T] = ()) -> None:
-         self._a: list[T] = list(itens)
-         # construção de baixo para cima: O(n)
--        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) >> 2 - 1, -1, -1):
-             self._descer(i)
- 
-     def inserir(self, item: T) -> None:
-```
-
-- linha 32, `core/ReplaceBinaryOperator_FloorDiv_BitOr`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
-     def __init__(self, itens: Iterable[T] = ()) -> None:
-         self._a: list[T] = list(itens)
-         # construção de baixo para cima: O(n)
--        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) | 2 - 1, -1, -1):
-             self._descer(i)
- 
-     def inserir(self, item: T) -> None:
-```
-
-- linha 32, `core/ReplaceBinaryOperator_Sub_Pow`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
+@@ -33,7 +33,7 @@
      def __init__(self, itens: Iterable[T] = ()) -> None:
          self._a: list[T] = list(itens)
          # construção de baixo para cima: O(n)
@@ -186,115 +33,166 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
      def inserir(self, item: T) -> None:
 ```
 
-- linha 32, `core/NumberReplacer`
+- linha 36, `core/ReplaceBinaryOperator_FloorDiv_BitOr`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
+@@ -33,7 +33,7 @@
      def __init__(self, itens: Iterable[T] = ()) -> None:
          self._a: list[T] = list(itens)
          # construção de baixo para cima: O(n)
 -        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) // 2 - 0, -1, -1):
++        for i in range(len(self._a) | 2 - 1, -1, -1):
              self._descer(i)
  
      def inserir(self, item: T) -> None:
 ```
 
-- linha 32, `core/ReplaceBinaryOperator_Sub_Add`
+- linha 36, `core/ReplaceBinaryOperator_FloorDiv_RShift`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
+@@ -33,7 +33,7 @@
      def __init__(self, itens: Iterable[T] = ()) -> None:
          self._a: list[T] = list(itens)
          # construção de baixo para cima: O(n)
 -        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) // 2 + 1, -1, -1):
++        for i in range(len(self._a) >> 2 - 1, -1, -1):
              self._descer(i)
  
      def inserir(self, item: T) -> None:
 ```
 
-- linha 32, `core/ReplaceBinaryOperator_FloorDiv_Sub`
+- linha 36, `core/ReplaceBinaryOperator_Sub_Mul`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
+@@ -33,7 +33,7 @@
      def __init__(self, itens: Iterable[T] = ()) -> None:
          self._a: list[T] = list(itens)
          # construção de baixo para cima: O(n)
 -        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) - 2 - 1, -1, -1):
++        for i in range(len(self._a) // 2 * 1, -1, -1):
              self._descer(i)
  
      def inserir(self, item: T) -> None:
 ```
 
-- linha 32, `core/ReplaceBinaryOperator_FloorDiv_Mul`
+- linha 36, `core/ReplaceBinaryOperator_FloorDiv_Add`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
+@@ -33,7 +33,7 @@
      def __init__(self, itens: Iterable[T] = ()) -> None:
          self._a: list[T] = list(itens)
          # construção de baixo para cima: O(n)
 -        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) * 2 - 1, -1, -1):
++        for i in range(len(self._a) + 2 - 1, -1, -1):
              self._descer(i)
  
      def inserir(self, item: T) -> None:
 ```
 
-- linha 32, `core/ReplaceBinaryOperator_Sub_LShift`
+- linha 36, `core/ReplaceBinaryOperator_Sub_BitXor`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
+@@ -33,7 +33,7 @@
      def __init__(self, itens: Iterable[T] = ()) -> None:
          self._a: list[T] = list(itens)
          # construção de baixo para cima: O(n)
 -        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) // 2 << 1, -1, -1):
++        for i in range(len(self._a) // 2 ^ 1, -1, -1):
              self._descer(i)
  
      def inserir(self, item: T) -> None:
 ```
 
-- linha 32, `core/ReplaceBinaryOperator_FloorDiv_Pow`
+- linha 36, `core/ReplaceBinaryOperator_Sub_BitOr`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
+@@ -33,7 +33,7 @@
      def __init__(self, itens: Iterable[T] = ()) -> None:
          self._a: list[T] = list(itens)
          # construção de baixo para cima: O(n)
 -        for i in range(len(self._a) // 2 - 1, -1, -1):
-+        for i in range(len(self._a) ** 2 - 1, -1, -1):
++        for i in range(len(self._a) // 2 | 1, -1, -1):
              self._descer(i)
  
      def inserir(self, item: T) -> None:
 ```
 
-- linha 32, `core/ReplaceBinaryOperator_FloorDiv_BitXor`
+- linha 36, `core/ReplaceBinaryOperator_Sub_FloorDiv`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -29,7 +29,7 @@
+@@ -33,7 +33,7 @@
+     def __init__(self, itens: Iterable[T] = ()) -> None:
+         self._a: list[T] = list(itens)
+         # construção de baixo para cima: O(n)
+-        for i in range(len(self._a) // 2 - 1, -1, -1):
++        for i in range(len(self._a) // 2 // 1, -1, -1):
+             self._descer(i)
+ 
+     def inserir(self, item: T) -> None:
+```
+
+- linha 36, `core/ReplaceBinaryOperator_FloorDiv_LShift`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\heap_prioridade.py
++++ b/src\estruturas\heap_prioridade.py
+@@ -33,7 +33,7 @@
+     def __init__(self, itens: Iterable[T] = ()) -> None:
+         self._a: list[T] = list(itens)
+         # construção de baixo para cima: O(n)
+-        for i in range(len(self._a) // 2 - 1, -1, -1):
++        for i in range(len(self._a) << 2 - 1, -1, -1):
+             self._descer(i)
+ 
+     def inserir(self, item: T) -> None:
+```
+
+- linha 36, `core/NumberReplacer`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\heap_prioridade.py
++++ b/src\estruturas\heap_prioridade.py
+@@ -33,7 +33,7 @@
+     def __init__(self, itens: Iterable[T] = ()) -> None:
+         self._a: list[T] = list(itens)
+         # construção de baixo para cima: O(n)
+-        for i in range(len(self._a) // 2 - 1, -1, -1):
++        for i in range(len(self._a) // 1 - 1, -1, -1):
+             self._descer(i)
+ 
+     def inserir(self, item: T) -> None:
+```
+
+- linha 36, `core/ReplaceBinaryOperator_FloorDiv_BitXor`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\heap_prioridade.py
++++ b/src\estruturas\heap_prioridade.py
+@@ -33,7 +33,7 @@
      def __init__(self, itens: Iterable[T] = ()) -> None:
          self._a: list[T] = list(itens)
          # construção de baixo para cima: O(n)
@@ -305,13 +203,98 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
      def inserir(self, item: T) -> None:
 ```
 
-- linha 67, `core/ReplaceComparisonOperator_Gt_NotEq`
+- linha 36, `core/ReplaceBinaryOperator_Sub_LShift`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -64,7 +64,7 @@
+@@ -33,7 +33,7 @@
+     def __init__(self, itens: Iterable[T] = ()) -> None:
+         self._a: list[T] = list(itens)
+         # construção de baixo para cima: O(n)
+-        for i in range(len(self._a) // 2 - 1, -1, -1):
++        for i in range(len(self._a) // 2 << 1, -1, -1):
+             self._descer(i)
+ 
+     def inserir(self, item: T) -> None:
+```
+
+- linha 36, `core/ReplaceBinaryOperator_FloorDiv_Pow`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\heap_prioridade.py
++++ b/src\estruturas\heap_prioridade.py
+@@ -33,7 +33,7 @@
+     def __init__(self, itens: Iterable[T] = ()) -> None:
+         self._a: list[T] = list(itens)
+         # construção de baixo para cima: O(n)
+-        for i in range(len(self._a) // 2 - 1, -1, -1):
++        for i in range(len(self._a) ** 2 - 1, -1, -1):
+             self._descer(i)
+ 
+     def inserir(self, item: T) -> None:
+```
+
+- linha 36, `core/ReplaceBinaryOperator_Sub_Add`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\heap_prioridade.py
++++ b/src\estruturas\heap_prioridade.py
+@@ -33,7 +33,7 @@
+     def __init__(self, itens: Iterable[T] = ()) -> None:
+         self._a: list[T] = list(itens)
+         # construção de baixo para cima: O(n)
+-        for i in range(len(self._a) // 2 - 1, -1, -1):
++        for i in range(len(self._a) // 2 + 1, -1, -1):
+             self._descer(i)
+ 
+     def inserir(self, item: T) -> None:
+```
+
+- linha 36, `core/ReplaceBinaryOperator_FloorDiv_Mul`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\heap_prioridade.py
++++ b/src\estruturas\heap_prioridade.py
+@@ -33,7 +33,7 @@
+     def __init__(self, itens: Iterable[T] = ()) -> None:
+         self._a: list[T] = list(itens)
+         # construção de baixo para cima: O(n)
+-        for i in range(len(self._a) // 2 - 1, -1, -1):
++        for i in range(len(self._a) * 2 - 1, -1, -1):
+             self._descer(i)
+ 
+     def inserir(self, item: T) -> None:
+```
+
+- linha 36, `core/NumberReplacer`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\heap_prioridade.py
++++ b/src\estruturas\heap_prioridade.py
+@@ -33,7 +33,7 @@
+     def __init__(self, itens: Iterable[T] = ()) -> None:
+         self._a: list[T] = list(itens)
+         # construção de baixo para cima: O(n)
+-        for i in range(len(self._a) // 2 - 1, -1, -1):
++        for i in range(len(self._a) // 2 - 0, -1, -1):
+             self._descer(i)
+ 
+     def inserir(self, item: T) -> None:
+```
+
+- linha 71, `core/ReplaceComparisonOperator_Gt_NotEq`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\heap_prioridade.py
++++ b/src\estruturas\heap_prioridade.py
+@@ -68,7 +68,7 @@
  
      def _subir(self, i: int) -> None:
          a = self._a
@@ -322,30 +305,13 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
                  a[i], a[pai] = a[pai], a[i]
 ```
 
-- linha 68, `core/NumberReplacer`
+- linha 73, `core/ReplaceComparisonOperator_Lt_LtE`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -65,7 +65,7 @@
-     def _subir(self, i: int) -> None:
-         a = self._a
-         while i > 0:
--            pai = (i - 1) // 2
-+            pai = (i - 1) // 1
-             if a[i] < a[pai]:
-                 a[i], a[pai] = a[pai], a[i]
-                 i = pai
-```
-
-- linha 69, `core/ReplaceComparisonOperator_Lt_LtE`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -66,7 +66,7 @@
+@@ -70,7 +70,7 @@
          a = self._a
          while i > 0:
              pai = (i - 1) // 2
@@ -356,30 +322,13 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
              else:
 ```
 
-- linha 78, `core/ReplaceBinaryOperator_Add_BitOr`
+- linha 82, `core/ReplaceBinaryOperator_Add_BitXor`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -75,7 +75,7 @@
-     def _descer(self, i: int) -> None:
-         a, n = self._a, len(self._a)
-         while True:
--            esq, dir_, menor = 2 * i + 1, 2 * i + 2, i
-+            esq, dir_, menor = 2 * i | 1, 2 * i + 2, i
-             if esq < n and a[esq] < a[menor]:
-                 menor = esq
-             if dir_ < n and a[dir_] < a[menor]:
-```
-
-- linha 78, `core/ReplaceBinaryOperator_Add_BitXor`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -75,7 +75,7 @@
+@@ -79,7 +79,7 @@
      def _descer(self, i: int) -> None:
          a, n = self._a, len(self._a)
          while True:
@@ -390,13 +339,30 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
              if dir_ < n and a[dir_] < a[menor]:
 ```
 
-- linha 79, `core/ReplaceComparisonOperator_Lt_LtE`
+- linha 82, `core/ReplaceBinaryOperator_Add_BitOr`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -76,7 +76,7 @@
+@@ -79,7 +79,7 @@
+     def _descer(self, i: int) -> None:
+         a, n = self._a, len(self._a)
+         while True:
+-            esq, dir_, menor = 2 * i + 1, 2 * i + 2, i
++            esq, dir_, menor = 2 * i | 1, 2 * i + 2, i
+             if esq < n and a[esq] < a[menor]:
+                 menor = esq
+             if dir_ < n and a[dir_] < a[menor]:
+```
+
+- linha 83, `core/ReplaceComparisonOperator_Lt_LtE`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\heap_prioridade.py
++++ b/src\estruturas\heap_prioridade.py
+@@ -80,7 +80,7 @@
          a, n = self._a, len(self._a)
          while True:
              esq, dir_, menor = 2 * i + 1, 2 * i + 2, i
@@ -407,13 +373,13 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
                  menor = dir_
 ```
 
-- linha 81, `core/ReplaceComparisonOperator_Lt_LtE`
+- linha 85, `core/ReplaceComparisonOperator_Lt_LtE`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -78,7 +78,7 @@
+@@ -82,7 +82,7 @@
              esq, dir_, menor = 2 * i + 1, 2 * i + 2, i
              if esq < n and a[esq] < a[menor]:
                  menor = esq
@@ -424,30 +390,13 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
                  return
 ```
 
-- linha 83, `core/ReplaceComparisonOperator_Eq_Is`
+- linha 87, `core/ReplaceComparisonOperator_Eq_LtE`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -80,7 +80,7 @@
-                 menor = esq
-             if dir_ < n and a[dir_] < a[menor]:
-                 menor = dir_
--            if menor == i:
-+            if menor is i:
-                 return
-             a[i], a[menor] = a[menor], a[i]
-             i = menor
-```
-
-- linha 83, `core/ReplaceComparisonOperator_Eq_LtE`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -80,7 +80,7 @@
+@@ -84,7 +84,7 @@
                  menor = esq
              if dir_ < n and a[dir_] < a[menor]:
                  menor = dir_
@@ -458,55 +407,38 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
              i = menor
 ```
 
-- linha 96, `core/NumberReplacer`
+- linha 87, `core/ReplaceComparisonOperator_Eq_Is`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -93,7 +93,7 @@
-         self._heap: HeapBinaria[tuple] = HeapBinaria()
-         self._versao: dict[Hashable, int] = {}
-         self._dados: dict[Hashable, Any] = {}
--        self._seq = 0
-+        self._seq = -1
- 
-     def inserir(self, id_item: Hashable, chave: tuple, dados: Any = None) -> None:
-         """Insere ou atualiza a prioridade de um item (nova versão invalida a anterior)."""
+@@ -84,7 +84,7 @@
+                 menor = esq
+             if dir_ < n and a[dir_] < a[menor]:
+                 menor = dir_
+-            if menor == i:
++            if menor is i:
+                 return
+             a[i], a[menor] = a[menor], a[i]
+             i = menor
 ```
 
-- linha 96, `core/NumberReplacer`
+- linha 102, `core/NumberReplacer`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -93,7 +93,7 @@
+@@ -99,7 +99,7 @@
          self._heap: HeapBinaria[tuple] = HeapBinaria()
-         self._versao: dict[Hashable, int] = {}
+         self._vigente: dict[Hashable, int] = {}   # id → sequência da entrada válida
          self._dados: dict[Hashable, Any] = {}
 -        self._seq = 0
 +        self._seq = 1
  
      def inserir(self, id_item: Hashable, chave: tuple, dados: Any = None) -> None:
-         """Insere ou atualiza a prioridade de um item (nova versão invalida a anterior)."""
-```
-
-- linha 102, `core/ReplaceBinaryOperator_Add_Sub`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -99,7 +99,7 @@
-         """Insere ou atualiza a prioridade de um item (nova versão invalida a anterior)."""
-         if any(c is None for c in chave):
-             raise ValueError("chave de prioridade incompleta: defina regra para campos ausentes")
--        versao = self._versao.get(id_item, 0) + 1
-+        versao = self._versao.get(id_item, 0) - 1
-         self._versao[id_item] = versao
-         self._dados[id_item] = dados
-         self._seq += 1
+         """Insere ou atualiza a prioridade de um item (a nova entrada invalida a anterior)."""
 ```
 
 - linha 102, `core/NumberReplacer`
@@ -516,113 +448,79 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
 @@ -99,7 +99,7 @@
-         """Insere ou atualiza a prioridade de um item (nova versão invalida a anterior)."""
-         if any(c is None for c in chave):
-             raise ValueError("chave de prioridade incompleta: defina regra para campos ausentes")
--        versao = self._versao.get(id_item, 0) + 1
-+        versao = self._versao.get(id_item, 1) + 1
-         self._versao[id_item] = versao
-         self._dados[id_item] = dados
-         self._seq += 1
+         self._heap: HeapBinaria[tuple] = HeapBinaria()
+         self._vigente: dict[Hashable, int] = {}   # id → sequência da entrada válida
+         self._dados: dict[Hashable, Any] = {}
+-        self._seq = 0
++        self._seq = -1
+ 
+     def inserir(self, id_item: Hashable, chave: tuple, dados: Any = None) -> None:
+         """Insere ou atualiza a prioridade de um item (a nova entrada invalida a anterior)."""
 ```
 
-- linha 102, `core/NumberReplacer`
+- linha 108, `core/NumberReplacer`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -99,7 +99,7 @@
-         """Insere ou atualiza a prioridade de um item (nova versão invalida a anterior)."""
+@@ -105,7 +105,7 @@
+         """Insere ou atualiza a prioridade de um item (a nova entrada invalida a anterior)."""
          if any(c is None for c in chave):
              raise ValueError("chave de prioridade incompleta: defina regra para campos ausentes")
--        versao = self._versao.get(id_item, 0) + 1
-+        versao = self._versao.get(id_item, -1) + 1
-         self._versao[id_item] = versao
-         self._dados[id_item] = dados
-         self._seq += 1
-```
-
-- linha 102, `core/NumberReplacer`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -99,7 +99,7 @@
-         """Insere ou atualiza a prioridade de um item (nova versão invalida a anterior)."""
-         if any(c is None for c in chave):
-             raise ValueError("chave de prioridade incompleta: defina regra para campos ausentes")
--        versao = self._versao.get(id_item, 0) + 1
-+        versao = self._versao.get(id_item, 0) + 2
-         self._versao[id_item] = versao
-         self._dados[id_item] = dados
-         self._seq += 1
-```
-
-- linha 105, `core/NumberReplacer`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\heap_prioridade.py
-+++ b/src\estruturas\heap_prioridade.py
-@@ -102,7 +102,7 @@
-         versao = self._versao.get(id_item, 0) + 1
-         self._versao[id_item] = versao
-         self._dados[id_item] = dados
 -        self._seq += 1
 +        self._seq += 2
-         self._heap.inserir((chave, self._seq, id_item, versao))
- 
-     def remover(self, id_item: Hashable) -> None:
+         self._vigente[id_item] = self._seq
+         self._dados[id_item] = dados
+         self._heap.inserir((chave, self._seq, id_item))
 ```
 
-- linha 119, `core/ReplaceComparisonOperator_Eq_Is`
+- linha 124, `core/ReplaceComparisonOperator_Eq_Is`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -116,7 +116,7 @@
+@@ -121,7 +121,7 @@
          """Retorna (id, chave, dados) do item de maior prioridade ainda válido."""
          while self._heap:
-             chave, _, id_item, versao = self._heap.extrair()
--            if self._versao.get(id_item) == versao:
-+            if self._versao.get(id_item) is versao:
-                 del self._versao[id_item]
+             chave, seq, id_item = self._heap.extrair()
+-            if self._vigente.get(id_item) == seq:
++            if self._vigente.get(id_item) is seq:
+                 del self._vigente[id_item]
                  return id_item, chave, self._dados.pop(id_item)
          raise IndexError("fila vazia")
 ```
 
-- linha 127, `core/ReplaceComparisonOperator_Eq_Is`
+- linha 137, `core/ReplaceComparisonOperator_Eq_Is`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -124,7 +124,7 @@
-     def espiar(self) -> tuple[Hashable, tuple]:
+@@ -134,7 +134,7 @@
+         """
          while self._heap:
-             chave, _, id_item, versao = self._heap.topo()
--            if self._versao.get(id_item) == versao:
-+            if self._versao.get(id_item) is versao:
+             chave, seq, id_item = self._heap.topo()
+-            if self._vigente.get(id_item) == seq:
++            if self._vigente.get(id_item) is seq:
                  return id_item, chave
              self._heap.extrair()  # descarta entrada obsoleta
          raise IndexError("fila vazia")
 ```
 
-- linha 142, `core/ReplaceComparisonOperator_Eq_Is`
+- linha 152, `core/ReplaceComparisonOperator_Eq_Is`
 
 ```diff
 --- mutation diff ---
 --- a/src\estruturas\heap_prioridade.py
 +++ b/src\estruturas\heap_prioridade.py
-@@ -139,6 +139,6 @@
+@@ -149,6 +149,6 @@
  
      def reconstruir(self) -> None:
          """Remove entradas obsoletas acumuladas em O(n)."""
--        vivas = [e for e in self._heap.itens() if self._versao.get(e[2]) == e[3]]
-+        vivas = [e for e in self._heap.itens() if self._versao.get(e[2]) is e[3]]
+-        vivas = [e for e in self._heap.itens() if self._vigente.get(e[2]) == e[1]]
++        vivas = [e for e in self._heap.itens() if self._vigente.get(e[2]) is e[1]]
          self._heap = HeapBinaria(vivas)
 ```
 
@@ -728,23 +626,6 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
      return candidato
 ```
 
-- linha 69, `core/ReplaceBinaryOperator_Add_BitXor`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\indice_hash.py
-+++ b/src\estruturas\indice_hash.py
-@@ -66,7 +66,7 @@
-         bucket.append((chave, valor))
-         self._n += 1
-         if self._n / len(self._buckets) > self.CARGA_MAXIMA:
--            self._redimensionar(proximo_primo(2 * len(self._buckets) + 1))
-+            self._redimensionar(proximo_primo(2 * len(self._buckets) ^ 1))
- 
-     def buscar(self, chave: Hashable, padrao: Any = _VAZIO) -> Any:
-         for k, v in self._bucket(chave):
-```
-
 - linha 69, `core/ReplaceBinaryOperator_Add_BitOr`
 
 ```diff
@@ -757,6 +638,23 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
          if self._n / len(self._buckets) > self.CARGA_MAXIMA:
 -            self._redimensionar(proximo_primo(2 * len(self._buckets) + 1))
 +            self._redimensionar(proximo_primo(2 * len(self._buckets) | 1))
+ 
+     def buscar(self, chave: Hashable, padrao: Any = _VAZIO) -> Any:
+         for k, v in self._bucket(chave):
+```
+
+- linha 69, `core/ReplaceBinaryOperator_Add_BitXor`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\indice_hash.py
++++ b/src\estruturas\indice_hash.py
+@@ -66,7 +66,7 @@
+         bucket.append((chave, valor))
+         self._n += 1
+         if self._n / len(self._buckets) > self.CARGA_MAXIMA:
+-            self._redimensionar(proximo_primo(2 * len(self._buckets) + 1))
++            self._redimensionar(proximo_primo(2 * len(self._buckets) ^ 1))
  
      def buscar(self, chave: Hashable, padrao: Any = _VAZIO) -> Any:
          for k, v in self._bucket(chave):
@@ -779,23 +677,6 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
 ```
 
 ## Sobreviventes em `src/estruturas/grafo.py`
-
-- linha 51, `core/ReplaceComparisonOperator_Eq_Is`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\grafo.py
-+++ b/src\estruturas\grafo.py
-@@ -48,7 +48,7 @@
-         return [(o, d, r) for o, viz in self._sai.items() for d, r in viz.items()]
- 
-     def sucessores(self, v: Hashable, rotulo: str | None = None) -> list[Hashable]:
--        return [d for d, r in self._sai[v].items() if rotulo is None or r == rotulo]
-+        return [d for d, r in self._sai[v].items() if rotulo is None or r is rotulo]
- 
-     def predecessores(self, v: Hashable) -> list[Hashable]:
-         return list(self._entra[v])
-```
 
 - linha 99, `core/NumberReplacer`
 
@@ -829,23 +710,6 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
          cor = dict.fromkeys(self._sai, BRANCO)
          for raiz in self._sai:
              if cor[raiz] != BRANCO:
-```
-
-- linha 102, `core/ReplaceComparisonOperator_NotEq_IsNot`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\grafo.py
-+++ b/src\estruturas\grafo.py
-@@ -99,7 +99,7 @@
-         BRANCO, CINZA, PRETO = 0, 1, 2
-         cor = dict.fromkeys(self._sai, BRANCO)
-         for raiz in self._sai:
--            if cor[raiz] != BRANCO:
-+            if cor[raiz] is not BRANCO:
-                 continue
-             cor[raiz] = CINZA
-             pilha = [(raiz, iter(self._sai[raiz]))]
 ```
 
 - linha 102, `core/ReplaceComparisonOperator_NotEq_Gt`
@@ -882,6 +746,23 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
              pilha = [(raiz, iter(self._sai[raiz]))]
 ```
 
+- linha 102, `core/ReplaceComparisonOperator_NotEq_IsNot`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\grafo.py
++++ b/src\estruturas\grafo.py
+@@ -99,7 +99,7 @@
+         BRANCO, CINZA, PRETO = 0, 1, 2
+         cor = dict.fromkeys(self._sai, BRANCO)
+         for raiz in self._sai:
+-            if cor[raiz] != BRANCO:
++            if cor[raiz] is not BRANCO:
+                 continue
+             cor[raiz] = CINZA
+             pilha = [(raiz, iter(self._sai[raiz]))]
+```
+
 - linha 112, `core/ReplaceComparisonOperator_Eq_Is`
 
 ```diff
@@ -899,7 +780,7 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
                      cor[w] = CINZA
 ```
 
-- linha 114, `core/ReplaceComparisonOperator_Eq_IsNot`
+- linha 114, `core/ReplaceComparisonOperator_Eq_LtE`
 
 ```diff
 --- mutation diff ---
@@ -910,7 +791,24 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
                  elif cor[w] == CINZA:
                      return True
 -                elif cor[w] == BRANCO:
-+                elif cor[w] is not BRANCO:
++                elif cor[w] <= BRANCO:
+                     cor[w] = CINZA
+                     pilha.append((w, iter(self._sai[w])))
+         return False
+```
+
+- linha 114, `core/ReplaceComparisonOperator_Eq_NotEq`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\grafo.py
++++ b/src\estruturas\grafo.py
+@@ -111,7 +111,7 @@
+                     pilha.pop()
+                 elif cor[w] == CINZA:
+                     return True
+-                elif cor[w] == BRANCO:
++                elif cor[w] != BRANCO:
                      cor[w] = CINZA
                      pilha.append((w, iter(self._sai[w])))
          return False
@@ -928,6 +826,23 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
                      return True
 -                elif cor[w] == BRANCO:
 +                elif cor[w] is BRANCO:
+                     cor[w] = CINZA
+                     pilha.append((w, iter(self._sai[w])))
+         return False
+```
+
+- linha 114, `core/ReplaceComparisonOperator_Eq_IsNot`
+
+```diff
+--- mutation diff ---
+--- a/src\estruturas\grafo.py
++++ b/src\estruturas\grafo.py
+@@ -111,7 +111,7 @@
+                     pilha.pop()
+                 elif cor[w] == CINZA:
+                     return True
+-                elif cor[w] == BRANCO:
++                elif cor[w] is not BRANCO:
                      cor[w] = CINZA
                      pilha.append((w, iter(self._sai[w])))
          return False
@@ -967,50 +882,33 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
          return False
 ```
 
-- linha 114, `core/ReplaceComparisonOperator_Eq_NotEq`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\grafo.py
-+++ b/src\estruturas\grafo.py
-@@ -111,7 +111,7 @@
-                     pilha.pop()
-                 elif cor[w] == CINZA:
-                     return True
--                elif cor[w] == BRANCO:
-+                elif cor[w] != BRANCO:
-                     cor[w] = CINZA
-                     pilha.append((w, iter(self._sai[w])))
-         return False
-```
-
-- linha 114, `core/ReplaceComparisonOperator_Eq_LtE`
-
-```diff
---- mutation diff ---
---- a/src\estruturas\grafo.py
-+++ b/src\estruturas\grafo.py
-@@ -111,7 +111,7 @@
-                     pilha.pop()
-                 elif cor[w] == CINZA:
-                     return True
--                elif cor[w] == BRANCO:
-+                elif cor[w] <= BRANCO:
-                     cor[w] = CINZA
-                     pilha.append((w, iter(self._sai[w])))
-         return False
-```
-
 ## Sobreviventes em `etl/parser.py`
 
-- linha 87, `core/ReplaceComparisonOperator_Eq_LtE`
+- linha 32, `core/NumberReplacer`
 
 ```diff
 --- mutation diff ---
 --- a/etl\parser.py
 +++ b/etl\parser.py
-@@ -84,7 +84,7 @@
-         pai = pais[_vigencia(ano)]
+@@ -29,7 +29,7 @@
+ CAMPOS_SOBRANDO = "__campos_sobrando__"  # valores além do número de colunas do cabeçalho
+ 
+ # Mapeamento aprovado (Relatório de Auditoria, p. 6): conta-pai por tributo e vigência.
+-VIGENCIAS = {"2019-2021": range(2019, 2022), "2022-2026": range(2022, 2027)}
++VIGENCIAS = {"2019-2021": range(2019, 2022), "2022-2026": range( 2021, 2027)}
+ PAIS_POR_TRIBUTO = {
+     "IPTU": {"2019-2021": "1118011", "2022-2026": "1112500"},
+     "ISSQN": {"2019-2021": "1118023", "2022-2026": "1114511"},
+```
+
+- linha 163, `core/ReplaceComparisonOperator_Eq_LtE`
+
+```diff
+--- mutation diff ---
+--- a/etl\parser.py
++++ b/etl\parser.py
+@@ -160,7 +160,7 @@
+         pai = pais[vigencia]
          if codigo_original == pai:
              return Classificacao(tributo, "TOTAL", None, None)
 -        if (len(codigo_original) == len(pai) + 1 and codigo_original.startswith(pai)
@@ -1020,14 +918,14 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
                                   COMPONENTE_POR_SUFIXO[codigo_original[-1]], pai)
 ```
 
-- linha 87, `core/ReplaceComparisonOperator_Eq_Is`
+- linha 163, `core/ReplaceComparisonOperator_Eq_Is`
 
 ```diff
 --- mutation diff ---
 --- a/etl\parser.py
 +++ b/etl\parser.py
-@@ -84,7 +84,7 @@
-         pai = pais[_vigencia(ano)]
+@@ -160,7 +160,7 @@
+         pai = pais[vigencia]
          if codigo_original == pai:
              return Classificacao(tributo, "TOTAL", None, None)
 -        if (len(codigo_original) == len(pai) + 1 and codigo_original.startswith(pai)
@@ -1037,102 +935,118 @@ Gerado por `python scripts/mutacao.py` (cosmic-ray). Um **mutante** é uma cópi
                                   COMPONENTE_POR_SUFIXO[codigo_original[-1]], pai)
 ```
 
-- linha 147, `core/ReplaceComparisonOperator_Eq_GtE`
+- linha 231, `core/ReplaceComparisonOperator_Eq_GtE`
 
 ```diff
 --- mutation diff ---
 --- a/etl\parser.py
 +++ b/etl\parser.py
-@@ -144,7 +144,7 @@
-         c = l.classificacao
+@@ -228,7 +228,7 @@
+     Sem a conta-pai não há a que vincular o componente (conta_receita.id_conta_pai).
+     """
+     pais = {(linha.orgao, linha.ano, linha.codigo_original) for linha in linhas
+-            if linha.classificacao is not None and linha.classificacao.papel == "TOTAL"}
++            if linha.classificacao is not None and linha.classificacao.papel >= "TOTAL"}
+     orfaos = []
+     for linha in linhas:
+         c = linha.classificacao
+```
+
+- linha 231, `core/ReplaceComparisonOperator_Eq_LtE`
+
+```diff
+--- mutation diff ---
+--- a/etl\parser.py
++++ b/etl\parser.py
+@@ -228,7 +228,7 @@
+     Sem a conta-pai não há a que vincular o componente (conta_receita.id_conta_pai).
+     """
+     pais = {(linha.orgao, linha.ano, linha.codigo_original) for linha in linhas
+-            if linha.classificacao is not None and linha.classificacao.papel == "TOTAL"}
++            if linha.classificacao is not None and linha.classificacao.papel <= "TOTAL"}
+     orfaos = []
+     for linha in linhas:
+         c = linha.classificacao
+```
+
+- linha 280, `core/ReplaceComparisonOperator_Eq_GtE`
+
+```diff
+--- mutation diff ---
+--- a/etl\parser.py
++++ b/etl\parser.py
+@@ -277,7 +277,7 @@
+         c = linha.classificacao
          if c is None:
              continue
--        pai = l.codigo_original if c.papel == "TOTAL" else c.codigo_pai
-+        pai = l.codigo_original if c.papel >= "TOTAL" else c.codigo_pai
-         chave = (l.orgao, l.ano, l.mes, pai)
+-        pai = linha.codigo_original if c.papel == "TOTAL" else c.codigo_pai
++        pai = linha.codigo_original if c.papel >= "TOTAL" else c.codigo_pai
+         chave = (linha.orgao, linha.ano, linha.mes, pai)
          if c.papel == "TOTAL":
-             totais[chave] = l.valor_arrecadado_mes
+             totais[chave] = linha.valor_arrecadado_mes
 ```
 
-- linha 147, `core/ReplaceComparisonOperator_Eq_Is`
+- linha 282, `core/ReplaceComparisonOperator_Eq_GtE`
 
 ```diff
 --- mutation diff ---
 --- a/etl\parser.py
 +++ b/etl\parser.py
-@@ -144,7 +144,7 @@
-         c = l.classificacao
-         if c is None:
+@@ -279,7 +279,7 @@
              continue
--        pai = l.codigo_original if c.papel == "TOTAL" else c.codigo_pai
-+        pai = l.codigo_original if c.papel is "TOTAL" else c.codigo_pai
-         chave = (l.orgao, l.ano, l.mes, pai)
-         if c.papel == "TOTAL":
-             totais[chave] = l.valor_arrecadado_mes
-```
-
-- linha 149, `core/ReplaceComparisonOperator_Eq_Is`
-
-```diff
---- mutation diff ---
---- a/etl\parser.py
-+++ b/etl\parser.py
-@@ -146,7 +146,7 @@
-             continue
-         pai = l.codigo_original if c.papel == "TOTAL" else c.codigo_pai
-         chave = (l.orgao, l.ano, l.mes, pai)
--        if c.papel == "TOTAL":
-+        if c.papel is "TOTAL":
-             totais[chave] = l.valor_arrecadado_mes
-         else:
-             somas[chave] = somas.get(chave, Decimal("0.00")) + l.valor_arrecadado_mes
-```
-
-- linha 149, `core/ReplaceComparisonOperator_Eq_GtE`
-
-```diff
---- mutation diff ---
---- a/etl\parser.py
-+++ b/etl\parser.py
-@@ -146,7 +146,7 @@
-             continue
-         pai = l.codigo_original if c.papel == "TOTAL" else c.codigo_pai
-         chave = (l.orgao, l.ano, l.mes, pai)
+         pai = linha.codigo_original if c.papel == "TOTAL" else c.codigo_pai
+         chave = (linha.orgao, linha.ano, linha.mes, pai)
 -        if c.papel == "TOTAL":
 +        if c.papel >= "TOTAL":
-             totais[chave] = l.valor_arrecadado_mes
+             totais[chave] = linha.valor_arrecadado_mes
          else:
-             somas[chave] = somas.get(chave, Decimal("0.00")) + l.valor_arrecadado_mes
+             somas[chave] = somas.get(chave, Decimal("0.00")) + linha.valor_arrecadado_mes
 ```
 
-- linha 157, `core/NumberReplacer`
+- linha 290, `core/ReplaceComparisonOperator_NotEq_IsNot`
 
 ```diff
 --- mutation diff ---
 --- a/etl\parser.py
 +++ b/etl\parser.py
-@@ -154,7 +154,7 @@
+@@ -287,7 +287,7 @@
      divergencias = []
-     for chave, total in totais.items():
-         soma = somas.get(chave, Decimal("0.00"))
--        if soma != total or contagem.get(chave, 0) != 4:
-+        if soma != total or contagem.get(chave, 1) != 4:
+     for chave in sorted(totais.keys() | somas.keys()):
+         total, soma = totais.get(chave), somas.get(chave, Decimal("0.00"))
+-        if total != soma or contagem.get(chave, 0) != len(COMPONENTE_POR_SUFIXO):
++        if total != soma or contagem.get(chave, 0) is not len(COMPONENTE_POR_SUFIXO):
              divergencias.append((chave, total, soma))
      return divergencias
 ```
 
-- linha 157, `core/NumberReplacer`
+- linha 290, `core/NumberReplacer`
 
 ```diff
 --- mutation diff ---
 --- a/etl\parser.py
 +++ b/etl\parser.py
-@@ -154,7 +154,7 @@
+@@ -287,7 +287,7 @@
      divergencias = []
-     for chave, total in totais.items():
-         soma = somas.get(chave, Decimal("0.00"))
--        if soma != total or contagem.get(chave, 0) != 4:
-+        if soma != total or contagem.get(chave, -1) != 4:
+     for chave in sorted(totais.keys() | somas.keys()):
+         total, soma = totais.get(chave), somas.get(chave, Decimal("0.00"))
+-        if total != soma or contagem.get(chave, 0) != len(COMPONENTE_POR_SUFIXO):
++        if total != soma or contagem.get(chave, -1) != len(COMPONENTE_POR_SUFIXO):
+             divergencias.append((chave, total, soma))
+     return divergencias
+```
+
+- linha 290, `core/NumberReplacer`
+
+```diff
+--- mutation diff ---
+--- a/etl\parser.py
++++ b/etl\parser.py
+@@ -287,7 +287,7 @@
+     divergencias = []
+     for chave in sorted(totais.keys() | somas.keys()):
+         total, soma = totais.get(chave), somas.get(chave, Decimal("0.00"))
+-        if total != soma or contagem.get(chave, 0) != len(COMPONENTE_POR_SUFIXO):
++        if total != soma or contagem.get(chave, 1) != len(COMPONENTE_POR_SUFIXO):
              divergencias.append((chave, total, soma))
      return divergencias
 ```

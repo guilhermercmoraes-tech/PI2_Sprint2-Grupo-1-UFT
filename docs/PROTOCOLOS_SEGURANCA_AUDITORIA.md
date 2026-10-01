@@ -135,7 +135,7 @@ mac(n) = HMAC-SHA-256( K_auditoria , campos(n) || mac(n-1) )      mac(0) = const
 ```
 
 - Cada registro guarda seu `mac`, calculado sobre os próprios campos **e o MAC do registro anterior**. Alterar ou apagar qualquer registro quebra todos os MACs seguintes, e a verificação aponta o primeiro registro inválido.
-- `K_auditoria` é uma chave **própria da auditoria**, diferente da senha do banco e do sal de pseudonimização. É o mesmo princípio do TLS de usar chaves diferentes para cada finalidade (p. 525–526). Ela fica fora do banco e fora do Git.
+- `K_auditoria` é uma chave **própria da auditoria**, diferente da senha do banco e da chave de pseudonimização (`PSEUDONIMO_CHAVE`). É o mesmo princípio do TLS de usar chaves diferentes para cada finalidade (p. 525–526). Ela fica fora do banco e fora do Git.
 - HMAC-SHA-256 em vez de HMAC-MD5 ou SHA-1, citados no livro (p. 509–510) *[fora do livro: RFC 6151, RFC 6194]*.
 
 ### A3 — Ordem e repetição: número de sequência

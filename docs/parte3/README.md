@@ -88,7 +88,7 @@ classDiagram
         DB_NAME
         DB_USER
         DB_PASSWORD
-        PSEUDONIMO_SAL
+        PSEUDONIMO_CHAVE
     }
     class config {
         <<módulo>>

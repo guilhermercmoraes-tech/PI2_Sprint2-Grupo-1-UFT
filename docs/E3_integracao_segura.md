@@ -49,7 +49,7 @@ As duas versões de TLS estão dentro do mínimo recomendado atualmente (TLS 1.2
 | Senhas fortes e únicas | Geradas aleatoriamente (`secrets.token_urlsafe`), fora do repositório |
 | Banco não exposto | MySQL escuta só em `127.0.0.1` (`bind-address`) |
 | Sem segredo em log | Scripts não imprimem a configuração; auditoria proíbe senha, token e documento completo (`ck_aud_ator`, RF-03) |
-| Dados pessoais | CPF/CNPJ só entram pseudonimizados: `SHA-256(sal secreto + documento)`, com o sal em `PSEUDONIMO_SAL` no `.env`. Pseudonimização **não** é anonimização (LGPD) |
+| Dados pessoais | **Regra especificada, ainda sem código** (o piloto não tem dados pessoais): CPF/CNPJ só entram pseudonimizados por `HMAC-SHA-256(chave, documento)`, com a chave em `PSEUDONIMO_CHAVE` no `.env`, fora do banco e do Git. HMAC é a construção padronizada de hash com chave (RFC 2104; Kurose §8.3.2). Pseudonimização **não** é anonimização: quem tem a chave reverte a associação (LGPD, art. 13, §4º) |
 
 ## 5. Regras do cliente de coleta (Sprint 3)
 

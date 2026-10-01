@@ -4,16 +4,16 @@
 >
 > **Rubrica:** *"ER em 3FN; banco populado com dados reais; consultas validadas"* — 35% da nota da Sprint 2.
 
-Evidências regeradas em **30/09/2026 12:22**, no MySQL 8.4.11.
+Evidências geradas novamente em **01/10/2026 12:12**, no MySQL 8.4.11, depois das correções da revisão de consonância.
 
 ## Critérios e evidências
 
 | # | Critério do enunciado | Situação | Documento | Evidência principal |
 |---|---|---|---|---|
 | 1 | Diagrama ER normalizado (3FN) | ✅ Cumprido | [1_diagrama_er_3fn.md](1_diagrama_er_3fn.md) | Diagramas ER dos dois módulos, dependências funcionais, diagrama de classes do domínio |
-| 2 | Banco implementado com **esquema versionado no repositório** | ⚠️ Banco ✅ · versionamento **pendente** | [2_banco_implementado.md](2_banco_implementado.md) | MySQL 8.4.11, 43 tabelas e 3 views criadas por `schema.sql`. **Faltam os commits e o envio ao GitHub** (guia em `planejamento/`) |
-| 3 | Populado com **dados reais** coletados em piloto | ✅ Cumprido no piloto | [3_populado_dados_reais.md](3_populado_dados_reais.md) | Amostra real de 10 linhas carregada com linhagem e SHA-256; carga idempotente comprovada |
-| 4 | Consultas SQL de validação **executadas e documentadas** | ✅ Cumprido | [4_consultas_validacao.md](4_consultas_validacao.md) | 16 consultas executadas; resultados gerados automaticamente |
+| 2 | Banco implementado com **esquema versionado no repositório** | ✅ Cumprido | [2_banco_implementado.md](2_banco_implementado.md) | MySQL 8.4.11, 43 tabelas e 3 views criadas por `schema.sql`, versionado no Git (`main`); a publicação no GitHub é passo da Parte 4 |
+| 3 | Populado com **dados reais** coletados em piloto | ✅ Cumprido no piloto | [3_populado_dados_reais.md](3_populado_dados_reais.md) | Amostra real de 10 linhas carregada com linhagem e SHA-256; contrato do arquivo validado antes da publicação; carga idempotente comprovada |
+| 4 | Consultas SQL de validação **executadas e documentadas** | ✅ Cumprido | [4_consultas_validacao.md](4_consultas_validacao.md) | 18 consultas executadas; resultados gerados automaticamente |
 | — | Evidências complementares | — | [5_manutencao_e_qualidade.md](5_manutencao_e_qualidade.md) | Tipos de manutenção, depuração, dívida técnica, testes e uso de IA |
 
 ```mermaid
@@ -24,8 +24,7 @@ flowchart LR
     C4 -. "resultados confirmam o modelo" .-> C1
     classDef ok fill:#d4edda,stroke:#2e7d32,color:#1b3d1f
     classDef parcial fill:#fff3cd,stroke:#b8860b,color:#4d3800
-    class C1,C3,C4 ok
-    class C2 parcial
+    class C1,C2,C3,C4 ok
 ```
 
 ## Como reproduzir tudo
@@ -43,16 +42,16 @@ python scripts/quality_gate.py                                       # testes e 
 
 | Gate | Resultado |
 |---|---|
-| G1 Testes unitários | 163/163 ✅ |
-| G2 Testes de integração (MySQL) | 15/15 ✅ |
-| G3 Testes de aceitação (Gherkin) | 13/13 ✅ |
-| G4 Cobertura de linhas e ramos | 97,4% ✅ |
-| G5 Complexidade ciclomática | máx, 10 (interpretar), média 2,8 ✅ |
-| G6 Índice de manutenibilidade | mín, 43,6 (carregar_receita,py) ✅ |
-| G7 Tamanho de módulos e funções | maior módulo 162 SLOC; maior função 38 linhas ✅ |
+| G1 Testes unitários | 217/217 ✅ |
+| G2 Testes de integração (MySQL) | 32/32 ✅ |
+| G3 Testes de aceitação (Gherkin) | 15/15 ✅ |
+| G4 Cobertura de linhas e ramos | 98,1% ✅ |
+| G5 Complexidade ciclomática | máx. 8 (componentes_sem_pai), média 2,8 ✅ |
+| G6 Índice de manutenibilidade | mín. 43,1 (parser.py) ✅ |
+| G7 Tamanho de módulos e funções | maior módulo 202 SLOC; maior função 31 linhas ✅ |
 | G8 Controle de dependências (import-linter) | 4/4 contratos ✅ |
 | G9 Verificação de tipos (Pyright) | 0 erro(s) ✅ |
-| G10 Testes de mutação | 91,7% (727/793 mortos, nesta rodada) ✅ |
+| G10 Testes de mutação | 93,0% (816/877 mortos, nesta rodada) ✅ |
 
 ## Organização desta pasta
 

@@ -28,12 +28,14 @@ erDiagram
 
     FONTE_SNAPSHOT {
         int id_snapshot PK
-        char sha256 UK "SHA-256 do arquivo"
+        char sha256 UK "SHA-256 do arquivo; UK com versao_parser"
         varchar nome_arquivo
         bigint tamanho_bytes
         int total_linhas
-        varchar versao_parser
+        varchar versao_parser UK "versão das regras"
+        enum situacao "PUBLICADO | REJEITADO"
         datetime data_carga
+        char sha256_publicado UK "gerada: sha256 só se PUBLICADO"
     }
     STG_RECEITA_ATUAL {
         int id_snapshot PK,FK
@@ -128,6 +130,7 @@ erDiagram
     PERFIL_PERMISSAO ||--o{ SERVIDOR_PALMAS : atribuído
     PERFIL_PERMISSAO ||--o{ PERFIL_CONCEDE : ""
     PERMISSAO ||--o{ PERFIL_CONCEDE : ""
+    REGIAO |o--o{ PERMISSAO : "restringe (NULL = município)"
     CIDADAO ||--o{ REPRESENTACAO : exerce
     SUJEITO_PASSIVO ||--o{ REPRESENTACAO : "representado"
     USUARIO |o--o{ REGISTRO_AUDITORIA : "ator humano"
@@ -183,10 +186,10 @@ Os atributos completos de todas as tabelas estão em [`sql/schema.sql`](../sql/s
 ## 3. Normalização
 
 ### 3.1 1FN
-Todos os atributos são atômicos. As 14 colunas do CSV ficam em texto no staging; na publicação, cada medida vira uma linha (conta × mês), e não há grupos repetidos (ex.: o histórico com `valor_jan … valor_dez` não é copiado para colunas mensais).
+Todos os atributos são atômicos. As 14 colunas do CSV ficam em texto no staging; na publicação, cada medida vira uma linha (conta × mês), e não há grupos repetidos (ex.: o histórico com `valor_jan … valor_dez` não é copiado para colunas mensais). O escopo de uma permissão era o texto `'REGIAO:1'`, uma referência sem integridade; virou a chave estrangeira `permissao.id_regiao` (NULL = município inteiro). A única coluna composta é `previsao.variaveis_entrada` (JSON): é o registro de proveniência das entradas do modelo, gravado uma vez e nunca consultado por partes, por isso tratado como valor único.
 
 ### 3.2 2FN
-Nas tabelas com chave composta, cada atributo não chave depende da chave inteira:
+Nas tabelas com chave composta, cada atributo não chave depende da chave inteira (a exceção controlada de `conta_receita` está na seção 3.4):
 
 | Tabela | Chave | Dependências funcionais |
 |---|---|---|
@@ -196,7 +199,7 @@ Nas tabelas com chave composta, cada atributo não chave depende da chave inteir
 | `responsabilidade_tributaria` | (id_credito, id_sujeito, papel) | vigência, fundamento |
 
 ### 3.3 3FN
-Nenhum atributo não chave depende de outro atributo não chave:
+Em todas as tabelas, os atributos não chave dependem só da chave (Codd, 1971), **exceto as redundâncias controladas listadas na seção 3.4**, cada uma com a restrição ou a consulta que impede a anomalia. Decisões que eliminaram dependências transitivas:
 
 | Decisão | Motivo |
 |---|---|
@@ -209,11 +212,14 @@ Nenhum atributo não chave depende de outro atributo não chave:
 
 ### 3.4 Redundâncias controladas (documentadas)
 
-| Coluna | Por que existe | Por que não gera anomalia |
-|---|---|---|
-| `papel` em `receita_componente_mensal` / `total_informado_mensal` | Alvo de uma **FK composta** `(id_conta, papel) → conta_receita`: o banco rejeita uma conta TOTAL na tabela de fatos (e vice-versa) sem trigger | Valor fixado por `CHECK`; não pode divergir da conta |
-| `credito_em_negociacao` | Garante **no máximo uma negociação ativa por crédito** (RF-18) pela PK, inclusive sob concorrência | A linha é criada/removida na mesma transação que muda `negociacao.status`; a consulta V13 detecta desvio |
-| `usuario.tipo` | Discriminador da especialização `servidor_palmas` / `cidadao` | Informativo; as subtabelas são a fonte da verdade |
+| Coluna | Dependência que viola a forma normal | Por que existe | Por que não gera anomalia |
+|---|---|---|---|
+| `conta_receita.papel` | Transitiva: `codigo_componente → papel` (vazio = TOTAL, preenchido = COMPONENTE) | Alvo da FK composta `(id_conta, papel)` que impede uma conta TOTAL na tabela de fatos, sem trigger | `ck_conta_papel` impede papel e componente divergentes (teste `ck_conta_papel`, erro 3819) |
+| `conta_receita.codigo_tributo`, `codigo_componente`, `codigo_formatado` | Parcial: dependem de `(id_snapshot, ano, codigo_original)`, parte da chave natural `uq_conta` (que inclui o órgão) | A classificação é aplicada pelo parser versionado na carga; repeti-la por órgão evita uma tabela de plano de contas que ainda não é editada por ninguém | O snapshot é imutável (só `INSERT`, numa transação, pela mesma função), então não há atualização que crie divergência; a consulta V17 confere. Normalizar exige a tabela `plano_conta`, prevista se o plano de contas passar a ser editado |
+| `papel` em `receita_componente_mensal` / `total_informado_mensal` | Repete o papel da conta | Lado de origem da mesma FK composta | Valor fixado por `CHECK`; não pode divergir da conta |
+| `credito_em_negociacao` | Repete a informação "negociação ativa" de `negociacao.status` | A PK garante **uma única reserva por crédito** (RF-18), inclusive entre transações concorrentes | Manter a reserva coerente com `negociacao.status` é tarefa do serviço de negociação, que ainda não existe (Sprint 3); a consulta V13 detecta negociação ativa sem reserva |
+| `fonte_snapshot.sha256_publicado`, `permissao.escopo_regiao` | Derivadas de outras colunas da mesma linha | Permitem os `UNIQUE` "publicado uma vez" e "permissão única no município" (no MySQL, `NULL` não colide num `UNIQUE`) | Colunas geradas pelo banco (`AS … VIRTUAL`): não podem divergir |
+| `usuario.tipo` | Discriminador da especialização `servidor_palmas` / `cidadao` | Consulta rápida do tipo | Informativo; as subtabelas são a fonte da verdade |
 
 ---
 
@@ -221,7 +227,8 @@ Nenhum atributo não chave depende de outro atributo não chave:
 
 | Regra | Mecanismo |
 |---|---|
-| Reimportar o mesmo arquivo não duplica receita | `UNIQUE (sha256)` em `fonte_snapshot` |
+| Reimportar o mesmo arquivo não duplica receita | `uq_snapshot_publicado`: no máximo um snapshot `PUBLICADO` por SHA-256 |
+| Arquivo reprovado só é reprocessado por regras novas | `uq_snapshot_sha_versao` (SHA-256, versão do parser) |
 | Conta única por snapshot, ano, órgão e código | `uq_conta` |
 | Conta TOTAL não entra no fato; COMPONENTE não entra na conferência | FK composta + `CHECK` de papel |
 | Mês entre 1 e 12 | `CHECK` |
@@ -230,12 +237,15 @@ Nenhum atributo não chave depende de outro atributo não chave:
 | Vencimento ≥ constituição · vigência fim ≥ início | `CHECK` |
 | Uma negociação ativa por crédito | PK de `credito_em_negociacao` |
 | Auditoria de usuário exige id_usuario; de serviço/tarefa exige id do ator de sistema | `ck_aud_ator` |
+| Permissão restrita a uma região existente; sem duplicata no município | `fk_perm_regiao`; `uq_permissao` com `escopo_regiao` |
 | Observado × estimado separados; estimativa dentro do intervalo | tabelas `valor_indicador` × `previsao`; `ck_prev_intervalo` |
 | Indicador DISPONIVEL ⇔ valor preenchido | `ck_vi_disp` |
 | Dinheiro exato | `DECIMAL(18,2)` em todas as colunas monetárias |
 | Σ apropriações ≤ pagamento | Não expressável em CHECK no MySQL: validado pela consulta V09 e pelo serviço |
 
-Todas foram exercitadas em `tests/test_banco.py`, que confere o código de erro MySQL de cada rejeição (1452 FK, 3819 CHECK, 1062 PK).
+Cada restrição da tabela tem um teste em `tests/test_banco.py` que exige o código de erro MySQL da rejeição (1452 FK, 3819 CHECK, 1062 PK ou UNIQUE): veja `test_restricoes_do_modelo_rejeitam_dados_invalidos` e os testes nomeados pela regra. As duas últimas linhas não são rejeições do banco: o tipo `DECIMAL` e a regra Σ apropriações ≤ pagamento, conferida pela consulta V09.
+
+**Referência:** CODD, E. F. *Further Normalization of the Data Base Relational Model*. IBM Research Report RJ909, 1971 (definições de 2FN e 3FN).
 
 ## 5. Índices
 

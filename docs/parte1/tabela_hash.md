@@ -17,7 +17,7 @@ Código: [`src/estruturas/indice_hash.py`](../../src/estruturas/indice_hash.py).
 ## Decisão de arquitetura
 
 - **Chave do índice da dívida ativa:** o número da inscrição (`DA-SIN-2025-0001`); valor: os créditos inscritos. Para os créditos, a chave é o id do crédito. **CPF/CNPJ não é chave**, porque um contribuinte tem várias inscrições e um crédito pode ter corresponsáveis. Para essa consulta existe o `IndiceSecundario` (contribuinte → conjunto de créditos).
-- **Índice analítico da receita real:** chave composta `(órgão, ano, mês, código original)`, a mesma chave candidata da observação de receita no banco.
+- **Índice analítico da receita real:** chave composta `(órgão, ano, mês, código original)` dentro de um snapshot. É a chave da observação de receita no banco: a conta (`uq_conta`: snapshot, ano, órgão, código original) mais o mês. Entre snapshots, acrescenta-se o id do snapshot. A reimportação de um arquivo é detectada no banco, pelo SHA-256, e não pelo índice.
 - **Implementação explícita:** vetor de listas (buckets), `hash(chave) % m` para escolher o bucket, **encadeamento separado** para colisões e comparação da **chave completa** dentro do bucket. O `dict` do Python não é usado como tabela principal; a função `hash()` nativa é reaproveitada.
 - **Unicidade:** a fonte da verdade é o banco, que garante a unicidade das inscrições (`uq_inscricao_numero`). A tabela em memória espelha o banco, então `inserir` com uma chave existente atualiza o valor.
 - A tabela é um **índice em memória**: não substitui a persistência nem a auditoria.
@@ -74,7 +74,7 @@ Dados do domínio operacional (sujeitos, créditos, inscrições) são **sintét
 
 Uso no projeto (docs/arquitetura_dados.md):
 - índice analítico: (snapshot, órgão, ano, mês, código_original) → linha de receita,
-  para busca exata e detecção de reimportação;
+  para busca exata (a reimportação de um arquivo é detectada no banco, pelo SHA-256);
 - índice operacional: id da inscrição/crédito → registro;
 - IndiceSecundario: sujeito passivo → vários créditos (CPF/CNPJ sozinho não
   identifica uma dívida).
@@ -280,4 +280,4 @@ Crédito 3: IPTU 2024, principal R$ 4800.00, base Imóvel 2
 
 Também em Gherkin: cenário *"Colisões são resolvidas por encadeamento (Gersting, Exemplo 50)"* em `tests/aceitacao/estruturas.feature`.
 
-**Resultado:** 81 passed in 0.16s. **Mutação:** **96.2%** dos mutantes mortos (230 de 239 válidos). Os sobreviventes são equivalentes: análise em `docs/REQUISITOS_UML.md` §23.4.
+**Resultado:** 81 passed in 0.27s. **Mutação:** **96,2%** dos mutantes mortos (230 de 239 válidos). Nenhum sobrevivente muda o comportamento numa carga diferencial (`python scripts/sobreviventes.py`); por isso são classificados como equivalentes, o que é evidência, não prova. Análise em `docs/REQUISITOS_UML.md` §23.4.

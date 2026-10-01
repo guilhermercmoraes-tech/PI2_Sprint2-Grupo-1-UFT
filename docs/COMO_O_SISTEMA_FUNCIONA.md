@@ -79,26 +79,31 @@ UML: §14 (interfaces externas) · E3 e `PROTOCOLOS_SEGURANCA_AUDITORIA.md` (pro
 
 ## Etapa 2 — Validação: nenhum dado entra sem passar pelas regras
 
-Cada linha do CSV é conferida antes de ir para o banco. Um erro de contrato (valor com fração de centavo, mês inválido) **interrompe a publicação**: o arquivo fica só na área de conferência (staging), e o erro é registrado.
+O arquivo inteiro é conferido **antes** de qualquer gravação (`etl.parser.validar_arquivo`): primeiro o cabeçalho, depois cada linha, por fim a ligação de cada componente com a sua conta-pai. Um erro de contrato (coluna faltando, linha desalinhada, valor com fração de centavo, mês inválido, componente sem conta-pai) **reprova o arquivo**: ele fica registrado como `REJEITADO`, só com as linhas brutas (staging) e as evidências, e nada é publicado.
 
 ```mermaid
 flowchart TD
-    L["Linha do CSV"] --> V1{"Ano, mês e órgão<br/>são números válidos?"}
-    V1 -- não --> ERRO["ERRO de contrato<br/>registrado em resultado_validacao"]
-    V1 -- sim --> V2{"Mês entre 1 e 12?"}
+    A["Arquivo CSV"] --> V0{"Cabeçalho tem as<br/>14 colunas da fonte?"}
+    V0 -- não --> ERRO["ERRO de contrato<br/>registrado em resultado_validacao"]
+    V0 -- sim --> L["Cada linha"]
+    L --> V1{"Mesmo número de campos<br/>do cabeçalho?"}
+    V1 -- não --> ERRO
+    V1 -- sim --> V2{"Ano, mês (1 a 12)<br/>e órgão válidos?"}
     V2 -- não --> ERRO
     V2 -- sim --> V3{"Valores sem<br/>fração de centavo?"}
     V3 -- não --> ERRO
-    V3 -- sim --> V4{"Código está no<br/>mapeamento aprovado?"}
+    V3 -- sim --> V4{"Código no mapeamento aprovado<br/>e ano entre 2019 e 2026?"}
     V4 -- não --> NM["Conta não mapeada<br/>fica só no staging (INFO)"]
     V4 -- sim --> V5{"É conta-pai?"}
     V5 -- sim --> T["TOTAL<br/>só para conferência"]
-    V5 -- não --> C["COMPONENTE<br/>principal, multas, dívida ativa…"]
-    ERRO --> PARA["Publicação interrompida"]
+    V5 -- não --> V6{"A conta-pai do componente<br/>está no arquivo?"}
+    V6 -- não --> ERRO
+    V6 -- sim --> C["COMPONENTE<br/>principal, multas, dívida ativa…"]
+    ERRO --> PARA["Arquivo REJEITADO<br/>nada é publicado"]
 
     classDef feito fill:#d4edda,stroke:#2e7d32,color:#1b3d1f
     classDef erro fill:#f8d7da,stroke:#a71d2a,color:#5c0d14
-    class L,V1,V2,V3,V4,V5,T,C,NM feito
+    class A,L,V0,V1,V2,V3,V4,V5,V6,T,C,NM feito
     class ERRO,PARA erro
 ```
 
@@ -125,7 +130,7 @@ UML: §20.2 · Testes: `test_parser.py`, `carga_receita.feature`.
 
 ## Etapa 3 — Armazenamento no banco
 
-A carga é **idempotente**: o arquivo é identificado pelo SHA-256, e carregar o mesmo arquivo de novo não duplica nada. Tudo acontece numa única transação.
+A carga **decide antes de gravar** e registra a decisão: o snapshot nasce `PUBLICADO` ou `REJEITADO`. O banco garante a idempotência: o mesmo arquivo (SHA-256) é publicado no máximo uma vez (`uq_snapshot_publicado`), e um arquivo reprovado só é reprocessado por uma nova versão das regras (`uq_snapshot_sha_versao`). Repetir a carga não grava nada e devolve o mesmo resumo da primeira vez. Tudo acontece numa única transação.
 
 ```mermaid
 sequenceDiagram
@@ -135,23 +140,23 @@ sequenceDiagram
     participant B as MySQL
 
     U->>C: carregar(amostra.csv)
-    C->>C: calcula o SHA-256 do arquivo
-    C->>B: esse SHA-256 já existe?
-    alt arquivo já carregado
+    C->>C: calcula o SHA-256 e lê o arquivo
+    C->>B: há snapshot publicado, ou reprovado por estas regras?
+    alt já registrado
         B-->>C: sim (snapshot 1)
-        C-->>U: nada foi duplicado
-    else arquivo novo
-        C->>B: BEGIN · cria fonte_snapshot
-        C->>B: copia as linhas brutas para o staging
-        C->>C: valida cada linha (Etapa 2)
+        C->>B: lê o resumo registrado
+        C-->>U: mesmo resumo da primeira carga · nada é gravado
+    else arquivo novo, ou regras novas para um arquivo reprovado
+        C->>C: valida o arquivo inteiro (Etapa 2), sem gravar nada
+        C->>B: BEGIN · fonte_snapshot já com a situação decidida
+        C->>B: linhas brutas no staging e ocorrências da validação
         alt algum erro de contrato
-            C->>B: registra o erro · COMMIT só do staging
+            C->>B: COMMIT · REJEITADO: só staging e evidências
         else tudo válido
             C->>B: órgão, contas (pais antes dos filhos), valores mensais, orçamento
-            C->>B: registra a conciliação pai × componentes
-            C->>B: COMMIT
+            C->>B: conciliação pai × componentes · COMMIT · PUBLICADO
         end
-        C-->>U: resumo (componentes, totais, erros, divergências)
+        C-->>U: resumo lido do banco (situação, componentes, totais, erros, divergências)
     end
 ```
 
@@ -209,7 +214,7 @@ flowchart TB
     class DB,H,G,F,Q1,Q2,Q3 feito
 ```
 
-A fila de prioridade funciona como uma sala de espera ordenada. Quando a prioridade de uma ação muda, ela recebe uma nova senha, e a senha antiga é descartada quando é chamada:
+A fila de prioridade funciona como uma sala de espera ordenada. Cada entrada recebe uma senha única e crescente. Quando a prioridade de uma ação muda, ou quando a ação sai da fila e volta, ela recebe uma senha nova; a antiga perde a validade e é descartada quando é chamada. Uma senha nunca é reaproveitada: foi isso que corrigiu, em 01/10/2026, uma ação suspensa e reativada que voltava com a prioridade antiga (`test_remover_e_reinserir_nao_ressuscita_a_entrada_antiga`).
 
 ```mermaid
 sequenceDiagram
@@ -227,7 +232,7 @@ sequenceDiagram
 
 UML: §20.4 · `docs/arquitetura_dados.md` · Testes: `test_heap.py`, `test_indice_hash.py`, `test_grafo.py`, `estruturas.feature`.
 
-**Fundamentação:** [L1] Rosen §10.3, §10.4, §11.1, §11.4 (p. 668, 682, 686, 754, 789, 791); [L2] Lintzmayer & Mota cap. 12, 14 e 24 (p. 154–167, 173–174, 305–332); [L3] Gersting §5.6, Exemplos 49–51; [R11] Morin.
+**Fundamentação:** [L1] Rosen §10.3, §10.4, §11.4 (p. 668, 682, 686, 789, 791); [L2] Lintzmayer & Mota cap. 12 (p. 154–167; altura ⌊lg n⌋ na p. 154), 14 (p. 173–174) e 24 (p. 305–332); [L3] Gersting §5.6, Exemplos 49–51; [R11] Morin; [F10] notas do `heapq`; [A3]–[A5] testes de propriedade e diferenciais.
 
 ---
 
@@ -344,27 +349,25 @@ UML: §2.1, §13 · `PROTOCOLOS_SEGURANCA_AUDITORIA.md`.
 
 ## Etapa 8 — Garantia de qualidade em cada integração
 
-Nenhuma mudança entra no código principal sem passar pelos 10 quality gates.
+Nenhuma mudança entra na `main` sem passar pelos quality gates. O repositório usa só a `main`: é o desenvolvimento baseado no tronco, em que todo desenvolvimento ocorre no branch principal e a integração contínua roda a cada commit ([E10] Valente, cap. 10, §10.3).
 
 ```mermaid
 flowchart LR
     DEV[Desenvolvedor altera o código] --> LOCAL["quality_gate.py<br/>G1–G9"]
     LOCAL -- reprovado --> DEV
-    LOCAL -- aprovado --> PUSH[git push]
+    LOCAL -- aprovado --> PUSH[git push na main]
     PUSH --> CI["GitHub Actions<br/>G1–G9 com MySQL"]
     CI -- reprovado --> DEV
-    CI -- aprovado --> PR[Pull request para main]
-    PR --> CI2["GitHub Actions<br/>G1–G10 com mutação"]
+    AGENDA["Toda segunda-feira<br/>ou sob demanda"] --> CI2["GitHub Actions<br/>G1–G10 com mutação"]
     CI2 -- reprovado --> DEV
-    CI2 -- aprovado --> MERGE[Merge na main]
 
     classDef feito fill:#d4edda,stroke:#2e7d32,color:#1b3d1f
     classDef parcial fill:#fff3cd,stroke:#b8860b,color:#4d3800
     class DEV,LOCAL feito
-    class PUSH,CI,PR,CI2,MERGE parcial
+    class PUSH,CI,AGENDA,CI2 parcial
 ```
 
-Os gates rodam localmente e foram aprovados (resultado em `docs/qualidade.md`). O workflow do GitHub Actions está pronto, mas ainda não foi executado, porque o repositório não está no GitHub (amarelo no diagrama).
+Os gates rodam localmente e foram aprovados (resultado em `docs/qualidade.md`). O workflow do GitHub Actions está pronto, mas só roda depois que o repositório for publicado no GitHub (amarelo no diagrama). A mutação é lenta, por isso roda por agenda, e não a cada push.
 
 UML: §23.
 
@@ -405,7 +408,10 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 | [R16] | Roteiro Gov.br | | | | | ● | | ● | |
 | [T1]–[T7] | RFCs de TLS, HMAC, hash e cookies | ● | | | | ● | | ● | |
 | [D1]–[D4] | Documentos do projeto | ● | ● | ● | ● | ● | ● | ● | ● |
-| [F1]–[F9] | Ferramentas e manuais | | | ● | | | | | ● |
+| [F1]–[F10] | Ferramentas e manuais | | | ● | ● | | | | ● |
+| [A1]–[A4] | DeMillo et al.; Budd e Angluin; Claessen e Hughes; McKeeman — mutação, propriedades, testes diferenciais | | | | | | | | ● |
+| [A5] | Kahn — ordenação topológica | | | | ● | | | | |
+| [A6] | Codd — 2FN e 3FN | | | ● | | | | | |
 
 ### Livros consultados
 
@@ -413,14 +419,15 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 - Etapa 4 — §10.3, p. 668: representação por **lista de adjacência** (Exemplo 1, Tabela 1).
 - Etapa 4 — §10.4, p. 682 e p. 686 (Definição 5): **componentes conexos** e grafo dirigido **fracamente conexo**.
 - Etapa 4 — §11.4, Algoritmo 1 (DFS), p. 789, e Algoritmo 2 (BFS), p. 791: busca em profundidade e em largura, **O(e)** passos.
-- Etapa 4 — §11.1, Teorema 5 e Corolário 1, p. 754: altura ⌈logₘ l⌉ de árvore balanceada, base do **O(log n)** da heap.
+- Etapa 4 — §11.1, Teorema 5 e Corolário 1, p. 754: limite de altura de árvores m-árias (h ≥ ⌈logₘ l⌉; igualdade só para árvores cheias e balanceadas). **Não** fundamenta a altura da heap, que vem de [L2], cap. 12, p. 154: a "árvore m-ária completa" de Rosen (p. 756) tem todas as folhas no mesmo nível, o que a heap não exige.
 - Etapa 3 — Exercícios suplementares do cap. 11, p. 805: **árvore B** de grau k, estrutura dos índices do MySQL/InnoDB.
 - Etapa 4 — §4.5, p. 287–288: função de dispersão h(k) = k mod m e **colisão**.
 
 **[L2]** LINTZMAYER, Carla Negri; MOTA, Guilherme Oliveira. *Análise de Algoritmos e de Estruturas de Dados*. (versão em PDF consultada).
 - Etapa 4 — cap. 12, §12.1, p. 154–167: **heap binário** (construção, inserção, remoção, alteração).
 - Etapa 4 — cap. 14, p. 173–174: **tabelas hash**, colisões inevitáveis, O(1) no caso médio.
-- Etapa 4 — cap. 24, Algoritmos 24.5 e 24.11 (BFS, p. 310 e 322), 24.7 (DFS iterativa, p. 316), 24.9 e 24.12 (DFS recursiva, p. 320 e 322), 24.10 (componentes, p. 321): comparados com o código em 2.000 digrafos aleatórios, com ordem de visita idêntica.
+- Etapa 4 — cap. 12, p. 154: a altura do heap binário é ⌊lg n⌋, base do **O(log n)** de inserir e extrair.
+- Etapa 4 — cap. 24, Algoritmos 24.5 e 24.11 (BFS, p. 310 e 322), 24.7 (DFS iterativa, p. 316), 24.9 e 24.12 (DFS recursiva, p. 320 e 322), 24.10 (componentes, p. 321). A DFS do código, iterativa, visita na mesma ordem da DFS recursiva 24.12, e a BFS na mesma ordem da 24.5: conferido em 1.000 digrafos aleatórios pelo teste versionado `test_grafo.py::TestPropriedades`.
 - Etapa 4 — §24.4.2, p. 330–332: um digrafo admite ordenação topológica se, e somente se, **não tem ciclos**.
 
 **[L3]** GERSTING, Judith L. *Fundamentos matemáticos para a ciência da computação: matemática discreta e suas aplicações*. Rio de Janeiro: LTC. (edição do PDF consultado).
@@ -445,7 +452,7 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 - [E7] cap. 7 Arquitetura — Etapa 5: monólito modular.
 - [E8] cap. 8 Testes — Etapa 8: testes unitários, de integração e de sistema.
 - [E9] cap. 9 Refactoring — Etapa 8: divisão de `carregar()` sem mudar o comportamento.
-- [E10] cap. 10 DevOps — Etapa 8: integração contínua e quality gates.
+- [E10] cap. 10 DevOps — Etapa 8: integração contínua e quality gates; §10.3 (p. 15 do PDF): desenvolvimento baseado no trunk, base da decisão de usar só a `main`.
 
 ### Normas, legislação e artigos (Nota Técnica)
 
@@ -472,10 +479,21 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 - **[T1]** RFC 8446 — TLS 1.3. — Etapas 1, 5 e 7.
 - **[T2]** RFC 8996 — descontinuação de TLS 1.0 e 1.1. — Etapas 1 e 7.
 - **[T3]** RFC 9325 / BCP 195 — recomendações de uso seguro de TLS. — Etapas 1 e 7.
-- **[T4]** RFC 2104 — HMAC. — Etapa 7: cadeia de MAC da auditoria.
+- **[T4]** RFC 2104 — HMAC. — Etapa 7: cadeia de MAC da auditoria e pseudonimização especificada (HMAC-SHA-256; chave de pelo menos 32 bytes, §3).
 - **[T5]** RFC 6151 — MD5 inadequado para segurança. — Etapa 7.
 - **[T6]** RFC 6194 — considerações de segurança do SHA-1. — Etapa 7.
 - **[T7]** RFC 6265 e draft-ietf-httpbis-rfc6265bis — cookies HTTP e atributo `SameSite`. — Etapa 5.
+
+### Artigos sobre teste e modelagem
+
+Referências externas, citadas pelo conhecimento geral da área e **não conferidas** nos livros do curso:
+
+- **[A1]** DEMILLO, R. A.; LIPTON, R. J.; SAYWARD, F. G. Hints on test data selection: help for the practicing programmer. *IEEE Computer*, v. 11, n. 4, 1978. — Etapa 8: testes de mutação.
+- **[A2]** BUDD, T. A.; ANGLUIN, D. Two notions of correctness and their relation to testing. *Acta Informatica*, v. 18, n. 1, 1982. — Etapa 8: decidir se um mutante é equivalente é indecidível em geral.
+- **[A3]** CLAESSEN, K.; HUGHES, J. QuickCheck: a lightweight tool for random testing of Haskell programs. *ICFP*, 2000. — Etapa 8: testes de propriedade.
+- **[A4]** McKEEMAN, W. M. Differential testing for software. *Digital Technical Journal*, v. 10, n. 1, 1998. — Etapa 8: testes diferenciais e `scripts/sobreviventes.py`.
+- **[A5]** KAHN, A. B. Topological sorting of large networks. *Communications of the ACM*, v. 5, n. 11, 1962. — Etapa 4: referência do teste de detecção de ciclo.
+- **[A6]** CODD, E. F. *Further Normalization of the Data Base Relational Model*. IBM Research Report RJ909, 1971. — Etapa 3: 2FN e 3FN.
 
 ### Documentos do projeto
 
@@ -495,3 +513,4 @@ Páginas pela numeração impressa das obras. Os IDs `[R…]` e `[E…]` são os
 - **[F7]** import-linter (contratos de dependência). — Etapa 8.
 - **[F8]** Pyright (verificação de tipos). — Etapa 8.
 - **[F9]** GitHub Actions (integração contínua). — Etapa 8.
+- **[F10]** Python Software Foundation. `heapq`, *Priority Queue Implementation Notes*. — Etapa 4: remoção preguiçosa com contador crescente, a ideia da correção da fila em 01/10/2026.

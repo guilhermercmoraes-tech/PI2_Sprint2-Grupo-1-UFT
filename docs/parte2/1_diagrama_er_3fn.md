@@ -14,7 +14,7 @@ O banco foi dividido pela **origem dos dados**, uma decisão tomada na modelagem
 
 ```mermaid
 flowchart LR
-    CSV[(CSV do portal<br/>dados reais)] --> A["Módulo A<br/>receita observada<br/>9 tabelas"]
+    CSV[(CSV do portal<br/>dados reais)] --> A["Módulo A<br/>receita observada<br/>10 tabelas"]
     SEED[(seed_sintetico.sql<br/>dados sintéticos)] --> B["Módulo B<br/>domínio operacional<br/>33 tabelas"]
     A -. "tributo: 1 tabela compartilhada" .- B
     A --> VA(["v_tributo_mes<br/>v_conciliacao_pai_filhos"])
@@ -38,12 +38,14 @@ erDiagram
 
     FONTE_SNAPSHOT {
         int id_snapshot PK
-        char sha256 UK "SHA-256 do arquivo"
+        char sha256 UK "SHA-256 do arquivo; UK com versao_parser"
         varchar nome_arquivo
         bigint tamanho_bytes
         int total_linhas
-        varchar versao_parser
+        varchar versao_parser UK "versão das regras"
+        enum situacao "PUBLICADO | REJEITADO"
         datetime data_carga
+        char sha256_publicado UK "gerada: sha256 só se PUBLICADO"
     }
     STG_RECEITA_ATUAL {
         int id_snapshot PK,FK
@@ -138,6 +140,7 @@ erDiagram
     PERFIL_PERMISSAO ||--o{ SERVIDOR_PALMAS : atribuído
     PERFIL_PERMISSAO ||--o{ PERFIL_CONCEDE : ""
     PERMISSAO ||--o{ PERFIL_CONCEDE : ""
+    REGIAO |o--o{ PERMISSAO : "restringe (NULL = município)"
     CIDADAO ||--o{ REPRESENTACAO : exerce
     SUJEITO_PASSIVO ||--o{ REPRESENTACAO : "representado"
     USUARIO |o--o{ REGISTRO_AUDITORIA : "ator humano"
@@ -211,6 +214,7 @@ classDiagram
         -tamanho_bytes : int
         -total_linhas : int
         -versao_parser : str
+        -situacao : PUBLICADO | REJEITADO
         -data_carga : datetime
     }
     class LinhaStaging {
@@ -415,17 +419,17 @@ classDiagram
     CreditoTributario "1" --> "0..*" ItemNegociacao : negociado em
 ```
 
-Restrições que o diagrama não expressa e que o banco garante (ver o critério 2): soma das apropriações ≤ valor do pagamento; no máximo uma negociação ativa por crédito; saldo sempre derivado dos movimentos.
+Restrições que o diagrama não expressa (ver o critério 2): soma das apropriações ≤ valor do pagamento, conferida pela consulta V09; uma única reserva de negociação ativa por crédito, garantida pelo banco; saldo sempre derivado dos movimentos, por uma *view*.
 
 ## 5. Normalização
 
 ### 5.1 Primeira Forma Normal (1FN)
 
-Todos os atributos são atômicos. As 14 colunas do CSV chegam como texto no staging; na publicação, cada medida vira **uma linha por conta e mês**. O histórico antigo, com colunas `valor_jan … valor_dez`, é exatamente o grupo repetido que a 1FN elimina, e não é copiado assim.
+Todos os atributos são atômicos. As 14 colunas do CSV chegam como texto no staging; na publicação, cada medida vira **uma linha por conta e mês**. O histórico antigo, com colunas `valor_jan … valor_dez`, é exatamente o grupo repetido que a 1FN elimina, e não é copiado assim. O escopo de uma permissão era o texto `'REGIAO:1'`, uma referência sem integridade; virou a chave estrangeira `permissao.id_regiao` (vazia = município inteiro). A única coluna composta é `previsao.variaveis_entrada` (JSON): é o registro de proveniência das entradas do modelo, gravado uma vez e nunca consultado por partes, por isso tratado como valor único.
 
 ### 5.2 Segunda Forma Normal (2FN)
 
-Nas tabelas com chave composta, cada atributo não chave depende da **chave inteira**:
+Nas tabelas com chave composta, cada atributo não chave depende da **chave inteira** (a exceção controlada de `conta_receita` está na seção 5.4):
 
 | Tabela | Chave | Dependências funcionais |
 |---|---|---|
@@ -437,7 +441,7 @@ Nas tabelas com chave composta, cada atributo não chave depende da **chave inte
 
 ### 5.3 Terceira Forma Normal (3FN)
 
-Nenhum atributo não chave depende de outro atributo não chave:
+Em todas as tabelas, os atributos não chave dependem só da chave (Codd, 1971), **exceto as redundâncias controladas da seção 5.4**, cada uma com a restrição ou a consulta que impede a anomalia:
 
 ```mermaid
 flowchart LR
@@ -445,11 +449,13 @@ flowchart LR
         L["orgao · orgao_nome · ano · mes · codigo_original · codigo · descricao ·<br/>valor_orcado · valor_arrecado_mes · valor_arrecado_periodo"]
     end
     L -- "orgao → orgao_nome<br/>(dependência transitiva)" --> O[orgao]
-    L -- "(snapshot, ano, órgão, código) → papel, tributo, componente, pai" --> C[conta_receita]
+    L -- "(snapshot, ano, órgão, código) → pai<br/>(snapshot, ano, código) → papel, tributo, componente*" --> C[conta_receita]
     L -- "(conta, mês) → valor, descrição" --> F[receita_componente_mensal<br/>ou total_informado_mensal]
     L -- "(conta, vigência) → valor_orcado<br/>(repetido nos 12 meses na fonte)" --> R[orcamento_informado]
     L -- "igual a valor_arrecado_mes<br/>(redundante: não publicado)" --> X[descartado após validação]
 ```
+
+\* A classificação depende de parte da chave natural de `conta_receita`: é uma das redundâncias controladas da seção 5.4.
 
 | Decisão | Motivo |
 |---|---|
@@ -462,13 +468,16 @@ flowchart LR
 
 ### 5.4 Redundâncias controladas
 
-Três pontos parecem redundantes e foram mantidos de propósito, cada um com proteção:
+Os pontos abaixo violam a forma normal de propósito. Cada um tem a sua proteção:
 
-| Coluna ou tabela | Por que existe | Por que não gera anomalia |
-|---|---|---|
-| `papel` em `receita_componente_mensal` e `total_informado_mensal` | Alvo de uma chave estrangeira composta `(id_conta, papel)`: o banco rejeita uma conta TOTAL na tabela de fatos sem precisar de trigger | O valor é fixado por `CHECK`; não pode divergir da conta |
-| `credito_em_negociacao` | Garante no máximo uma negociação ativa por crédito pela chave primária, inclusive sob concorrência | Criada e removida na mesma transação que muda o status; a consulta V13 detecta desvio |
-| `usuario.tipo` | Discriminador da especialização servidor/cidadão | Informativo; as subtabelas são a fonte da verdade |
+| Coluna ou tabela | Dependência que viola a forma normal | Por que existe | Por que não gera anomalia |
+|---|---|---|---|
+| `conta_receita.papel` | Transitiva: `codigo_componente → papel` (vazio = TOTAL, preenchido = COMPONENTE) | Alvo da chave estrangeira composta `(id_conta, papel)` que impede uma conta TOTAL na tabela de fatos, sem trigger | `ck_conta_papel` impede papel e componente divergentes (teste `ck_conta_papel`, erro 3819) |
+| `conta_receita.codigo_tributo`, `codigo_componente`, `codigo_formatado` | Parcial: dependem de `(id_snapshot, ano, codigo_original)`, parte da chave natural `uq_conta`, que inclui o órgão | A classificação é aplicada pelo parser versionado na carga; repeti-la por órgão evita uma tabela de plano de contas que ninguém edita ainda | O snapshot é imutável (só `INSERT`, numa transação, pela mesma função), então nenhuma atualização cria divergência; a consulta **V17** confere. Normalizar exige a tabela `plano_conta`, prevista se o plano de contas passar a ser editado |
+| `papel` em `receita_componente_mensal` e `total_informado_mensal` | Repete o papel da conta | Lado de origem da mesma chave estrangeira composta | O valor é fixado por `CHECK`; não pode divergir da conta |
+| `credito_em_negociacao` | Repete "negociação ativa", já expressa em `negociacao.status` | A chave primária garante **uma única reserva por crédito**, inclusive entre transações concorrentes | Manter a reserva coerente com o status é tarefa do serviço de negociação, que ainda não existe (Sprint 3); a consulta V13 detecta negociação ativa sem reserva |
+| `fonte_snapshot.sha256_publicado`, `permissao.escopo_regiao` | Derivadas de outras colunas da mesma linha | Permitem os `UNIQUE` "publicado uma vez" e "permissão única no município" (no MySQL, `NULL` não colide num `UNIQUE`) | Colunas geradas pelo banco (`AS … VIRTUAL`): não podem divergir |
+| `usuario.tipo` | Discriminador da especialização servidor/cidadão | Consulta rápida do tipo | Informativo; as subtabelas são a fonte da verdade |
 
 ## 6. Das classes às tabelas
 
@@ -492,4 +501,4 @@ flowchart LR
     K4 --> T4
 ```
 
-**Referências:** Valente, *Engenharia de Software Moderna*, cap. 4, §4.2 (UML como esboço, p. 5–6) e §4.3 (diagrama de classes, p. 8–16); `docs/modelagem_er.md`; `docs/REQUISITOS_UML.md` §16 e §20.1; relatório de auditoria dos CSVs (grupos com descrição e orçamento variáveis).
+**Referências:** Codd, E. F. *Further Normalization of the Data Base Relational Model*. IBM Research Report RJ909, 1971 (2FN e 3FN); Valente, *Engenharia de Software Moderna*, cap. 4, §4.2 (UML como esboço, p. 5–6) e §4.3 (diagrama de classes, p. 8–16); `docs/modelagem_er.md`; `docs/REQUISITOS_UML.md` §16 e §20.1; relatório de auditoria dos CSVs (grupos com descrição e orçamento variáveis).

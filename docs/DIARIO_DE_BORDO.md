@@ -2,7 +2,7 @@
 
 Registro das atividades da Sprint 2 (15/09 a 02/10/2026), com a evidência de cada uma no repositório.
 
-> **Como preencher:** cada integrante completa a coluna **Integrante(s)** e acrescenta suas próprias linhas (reuniões, pesquisas, revisões de pull request). As linhas já registradas descrevem trabalho feito neste repositório, com assistência de um agente de IA (Claude Code), conforme declarado em `docs/parte2/5_manutencao_e_qualidade.md` §9.
+> **Como preencher:** cada integrante completa a coluna **Integrante(s)** e acrescenta suas próprias linhas (reuniões, pesquisas, revisões de commits). As linhas já registradas descrevem trabalho feito neste repositório, com assistência de um agente de IA (Claude Code), conforme declarado em `docs/parte2/5_manutencao_e_qualidade.md` §9.
 
 | Data | Atividade | Integrante(s) | Evidência |
 |---|---|---|---|
@@ -20,5 +20,8 @@ Registro das atividades da Sprint 2 (15/09 a 02/10/2026), com a evidência de ca
 | 30/09 | Relatório do fluxo do sistema com diagramas e referências por etapa; UML v2.2 | _(preencher)_ | `docs/COMO_O_SISTEMA_FUNCIONA.md`, `docs/REQUISITOS_UML.md` |
 | 30/09 | Documentos da Parte 1 por estrutura; correção da tabela hash (capacidade prima) | _(preencher)_ | `docs/parte1/`, `tests/test_indice_hash.py` |
 | 30/09 | Documentos da Parte 2 (critérios), E3 e E4; nova verificação de TLS dos portais | _(preencher)_ | `docs/parte2/`, `docs/parte3/`, `docs/parte4/` |
-| _(a fazer)_ | Commits por frente, branch `sprint2`, pull request e merge | _(preencher)_ | Guia em `planejamento/Guia_GitHub_Sprint2.pdf` |
+| 30/09 | Repositório Git com commits por frente, direto na `main` (decisão da equipe: repositório novo, sem fork nem branch) | _(preencher)_ | `git log` |
+| 01/10 | Revisão de consonância das Partes 1 a 4 com o código, reexecutando testes, banco, demonstrações, diagramas e mutação | _(preencher)_ | `REVISAO_CONSONANCIA_01-10-2026.md` |
+| 01/10 | Correções: fila de prioridade (ação reinserida voltava com a prioridade antiga); contrato do arquivo antes da publicação, com snapshot `PUBLICADO`/`REJEITADO`; testes de propriedade; 3 lacunas que a mutação dava como equivalentes; verificador de sobreviventes; consultas V17 e V18; 3FN com as redundâncias controladas declaradas; escopo de permissão como chave estrangeira; README instalável; CI para a `main` única | _(preencher)_ | histórico do Git; `docs/qualidade.md`; `docs/mutacao.md` |
+| _(a fazer)_ | Criar o repositório no GitHub e enviar a `main` | _(preencher)_ | `Guia_GitHub_Sprint2.pdf` (Parte 4) |
 | _(a fazer)_ | Envio do link à coordenação (até 02/10, 23h59) | _(preencher)_ | — |
